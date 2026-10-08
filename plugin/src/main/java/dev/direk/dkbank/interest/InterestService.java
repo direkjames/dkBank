@@ -25,7 +25,9 @@ import org.jspecify.annotations.Nullable;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -152,15 +154,21 @@ public final class InterestService implements Listener {
 
     private void heartbeat() {
         long now = System.currentTimeMillis();
+        List<Beat> beats = new ArrayList<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            UUID uuid = player.getUniqueId();
-            Long last = lastBeat.put(uuid, now);
+            Long last = lastBeat.put(player.getUniqueId(), now);
             if (last == null) continue; // joined between heartbeats and not seen yet; counted from now
-            Beat beat = beat(player, last, now);
-            submit("record " + player.getName() + "'s online time", () -> {
-                Payout payout = store.beat(beat);
+            beats.add(beat(player, last, now));
+        }
+        if (beats.isEmpty()) return;
+        // Everyone in one database transaction.
+        submit("record online time", () -> {
+            List<Payout> payouts = store.beatAll(beats);
+            for (int i = 0; i < beats.size(); i++) {
+                UUID uuid = beats.get(i).uuid();
+                Payout payout = payouts.get(i);
                 if (lastBeatContains(uuid)) progress.put(uuid, new long[]{payout.cycleMillis(), System.currentTimeMillis()});
-                if (!payout.paid()) return;
+                if (!payout.paid()) continue;
                 paid(uuid, payout, "online");
                 if (bank.settings().interest().notifyOnline()) {
                     bank.runOnMain(() -> {
@@ -168,8 +176,8 @@ public final class InterestService implements Listener {
                         if (online != null) notify(online, "interest.online-payout", payout);
                     });
                 }
-            });
-        }
+            }
+        });
     }
 
     private Beat beat(Player player, long last, long now) {
@@ -177,7 +185,7 @@ public final class InterestService implements Listener {
         boolean active = !afk.isAfk(player, bank.settings().afk());
         Tier tier = bank.tierOf(player);
         InterestPlan plan = bank.locked(player) ? noInterest(tier.plan()) : tier.plan();
-        return new Beat(player.getUniqueId(), elapsed, active, plan, tier.maxBalance());
+        return new Beat(player.getUniqueId(), elapsed, now, active, plan, tier.maxBalance());
     }
 
     /** Locked by the alt-account limit: time still counts (so nothing piles up), but nothing is paid. */

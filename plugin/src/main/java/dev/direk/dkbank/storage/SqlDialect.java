@@ -42,6 +42,11 @@ public enum SqlDialect {
         }
 
         @Override
+        String sum(String column) {
+            return "TOTAL(" + column + ")"; // never overflows (SUM would fail past a long)
+        }
+
+        @Override
         String forUpdate() {
             return ""; // SQLite transactions lock the whole database (dkBank opens them as IMMEDIATE)
         }
@@ -84,6 +89,11 @@ public enum SqlDialect {
         }
 
         @Override
+        String sum(String column) {
+            return "COALESCE(SUM(" + column + "), 0)"; // DECIMAL in MySQL, so it never overflows
+        }
+
+        @Override
         String forUpdate() {
             return " FOR UPDATE"; // lock the rows until the transaction ends
         }
@@ -97,6 +107,9 @@ public enum SqlDialect {
 
     /** Records that an account logged in from an address (by hash), or updates when it last did. */
     abstract String upsertIp(String prefix);
+
+    /** A sum that can't overflow, for reports. */
+    abstract String sum(String column);
 
     /** Case-insensitive name match. */
     abstract String nameEquals();

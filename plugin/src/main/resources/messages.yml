@@ -224,6 +224,7 @@ help:
     - " <gold>/bank admin tier <player> <tier|default>"
     - " <gold>/bank admin alts <player> [allow|reset]"
     - " <gold>/bank admin economy [days]"
+    - " <gold>/bank admin info</gold> <gray>versions and setup, for support"
     - " <gold>/bank admin reload"
 
 # ------------------------------------------------------------
@@ -269,4 +270,15 @@ admin:
   # <input> <tiers>
   unknown-tier: "<prefix><red>No tier called '<input>'. <gray>Tiers: <white><tiers>"
   no-shares: "<prefix><red>Use an exact amount for admin commands, not all or half."
-  reloaded: "<prefix><green>config.yml and messages.yml reloaded. <gray>(Storage and command aliases need a restart.)"
+  reloaded: "<prefix><green>config.yml, messages.yml, tiers.yml and the menus reloaded. <gray>(Storage and command aliases need a restart.)"
+  # <version> (the new one) <current>
+  update-available: "<prefix><gray>dkBank <white><version></white> is out (you have <current>). Download it where you bought dkBank."
+  # /bank admin info, for support requests
+  info:
+    - "<prefix><gold><bold>dkBank <version></bold></gold> <gray>on <white><server></white> (Java <java>)"
+    - " <gray>Storage: <white><storage></white> · Economy: <white><economy></white> · PlaceholderAPI: <white><papi>"
+    - " <gray>Accounts: <white><accounts></white> · In banks: <white><total></white> · Loaded now: <white><loaded>"
+    - " <gray>Tiers: <white><tiers></white> · Alt limit: <white><alts></white> · Menus from commands: <white><menus>"
+    - " <gray>Newest version: <white><latest>"
+  # <file>
+  reload-failed: "<prefix><red><file> has a mistake, so nothing was reloaded. <gray>The console says where."

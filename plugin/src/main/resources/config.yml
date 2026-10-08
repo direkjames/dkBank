@@ -162,6 +162,15 @@ history:
   timezone: ""
 
 # ------------------------------------------------------------
+#  About dkBank
+# ------------------------------------------------------------
+# Tell staff (dkbank.admin) when a new dkBank version is out. Checked once at startup.
+update-checker: true
+# Anonymous usage numbers for the developer on bstats.org (number of servers, versions, storage type).
+# No player data. Also turned off for every plugin in plugins/bStats/config.yml.
+metrics: true
+
+# ------------------------------------------------------------
 #  Storage (changes need a restart)
 # ------------------------------------------------------------
 storage:

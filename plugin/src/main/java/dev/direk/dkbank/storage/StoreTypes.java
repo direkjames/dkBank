@@ -99,8 +99,14 @@ public final class StoreTypes {
     public record InterestState(BigDecimal balance, BigDecimal base, long activeMillis, long afkMillis, long lastSeen) {
     }
 
-    /** One minute (or so) of a player being online, for the interest cycle. */
-    public record Beat(UUID uuid, long elapsedMillis, boolean active, InterestPlan plan, @Nullable BigDecimal maxBalance) {
+    /**
+     * One minute (or so) of a player being online, for the interest cycle.
+     *
+     * @param elapsedMillis online time since this server last recorded the player
+     * @param at            when it was measured (the end of that time)
+     */
+    public record Beat(UUID uuid, long elapsedMillis, long at, boolean active, InterestPlan plan,
+                       @Nullable BigDecimal maxBalance) {
     }
 
     /**

@@ -27,6 +27,20 @@ public final class ConfigFile {
     private ConfigFile() {
     }
 
+    /** A file couldn't be read (usually a YAML mistake such as a tab or a missing quote). It wasn't changed. */
+    public static final class BrokenFileException extends RuntimeException {
+        private final String file;
+
+        BrokenFileException(String file, Exception cause) {
+            super(file + " has a mistake and couldn't be read: " + cause.getMessage(), cause);
+            this.file = file;
+        }
+
+        public String file() {
+            return file;
+        }
+    }
+
     public static YamlConfiguration load(JavaPlugin plugin, String name) {
         return load(plugin, name, Map.of());
     }
@@ -38,7 +52,13 @@ public final class ConfigFile {
         File file = new File(plugin.getDataFolder(), name);
         if (!file.exists()) plugin.saveResource(name, false);
 
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
+        // Strict: a file with a mistake is never "fixed" by writing the defaults over it.
+        YamlConfiguration config = new YamlConfiguration();
+        try {
+            config.load(file);
+        } catch (IOException | InvalidConfigurationException e) {
+            throw new BrokenFileException(name, e);
+        }
         YamlConfiguration defaults = defaults(plugin, name);
         if (defaults == null) return config;
 
@@ -49,6 +69,15 @@ public final class ConfigFile {
                     + name + ": it's now " + entry.getValue() + ".");
             config.set(entry.getKey(), null);
             changed = true;
+        }
+
+        if (name.equals("config.yml")) {
+            // Settings the plugin doesn't know are usually typos ("intrest:"), which silently do nothing.
+            for (String key : config.getKeys(true)) {
+                if (defaults.contains(key, true) || moved.containsKey(key)) continue;
+                if (config.isConfigurationSection(key) && !config.getConfigurationSection(key).getKeys(false).isEmpty()) continue;
+                plugin.getLogger().warning("Unknown setting '" + key + "' in " + name + " (a typo?). It's ignored.");
+            }
         }
 
         List<String> added = new ArrayList<>();

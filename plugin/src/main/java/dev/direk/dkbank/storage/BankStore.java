@@ -64,9 +64,19 @@ public final class BankStore {
         this.clock = clock;
     }
 
-    /** Thrown when the database fails. Nothing was changed. */
-    public static final class StorageException extends RuntimeException {
+    /** Thrown when the database fails. Nothing was changed, unless it's a {@link CommitUncertainException}. */
+    public static class StorageException extends RuntimeException {
         StorageException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    /**
+     * The database failed while saving (e.g. the connection dropped during the commit), so the change may
+     * or may not have been saved. Check before undoing anything.
+     */
+    public static final class CommitUncertainException extends StorageException {
+        CommitUncertainException(String message, Throwable cause) {
             super(message, cause);
         }
     }
@@ -79,14 +89,20 @@ public final class BankStore {
     private <T> T transaction(String what, Work<T> work) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
+            T result;
             try {
-                T result = work.run(c);
-                c.commit();
-                return result;
+                result = work.run(c);
             } catch (SQLException | RuntimeException e) {
                 c.rollback();
                 throw e;
             }
+            try {
+                c.commit();
+            } catch (SQLException e) {
+                throw new CommitUncertainException("The database failed while saving (it may or may not have saved) "
+                        + "while trying to " + what, e);
+            }
+            return result;
         } catch (SQLException e) {
             throw new StorageException("Database error while trying to " + what, e);
         }
@@ -106,18 +122,59 @@ public final class BankStore {
             if (schemaVersion(c) == 0) setSchemaVersion(c, 1, true); // fresh tables are version 1
             return null;
         });
+        if (dialect != SqlDialect.MYSQL) {
+            migrate();
+            return;
+        }
+        // Several servers sharing one MySQL database may start at once: only one upgrades at a time.
+        try (Connection lock = dataSource.getConnection()) {
+            lock.setAutoCommit(true);
+            try (PreparedStatement ps = lock.prepareStatement("SELECT GET_LOCK(?, 60)")) {
+                ps.setString(1, p + "upgrade");
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next() || rs.getInt(1) != 1) throw new SQLException("Another server is upgrading the tables; try again");
+                }
+            }
+            try {
+                migrate();
+            } finally {
+                try (PreparedStatement ps = lock.prepareStatement("SELECT RELEASE_LOCK(?)")) {
+                    ps.setString(1, p + "upgrade");
+                    ps.executeQuery().close();
+                }
+            }
+        } catch (SQLException e) {
+            throw new StorageException("Database error while trying to upgrade the tables", e);
+        }
+    }
+
+    private void migrate() {
         while (true) {
             int version = transaction("read the table version", this::schemaVersionOf);
             if (version >= SCHEMA_VERSION) return;
             int next = version + 1;
             transaction("upgrade the tables to version " + next, c -> {
                 try (Statement st = c.createStatement()) {
-                    for (String sql : migration(next)) st.execute(sql);
+                    for (String sql : migration(next)) {
+                        try {
+                            st.execute(sql);
+                        } catch (SQLException e) {
+                            // MySQL saves each table change on its own, so after a crash half-way some are
+                            // already done: "already exists" is fine. (SQLite undoes everything instead.)
+                            if (!alreadyDone(e)) throw e;
+                        }
+                    }
                 }
                 setSchemaVersion(c, next, false);
                 return null;
             });
         }
+    }
+
+    /** MySQL/MariaDB: duplicate column (1060), duplicate index (1061), table exists (1050). */
+    private boolean alreadyDone(SQLException e) {
+        int code = e.getErrorCode();
+        return dialect == SqlDialect.MYSQL && (code == 1060 || code == 1061 || code == 1050);
     }
 
     /** Statements that upgrade the tables from {@code version - 1} to {@code version}. */
@@ -378,6 +435,30 @@ public final class BankStore {
         }
     }
 
+    /**
+     * The newest history line of one type since {@code since}: after a {@link CommitUncertainException},
+     * shows whether the change was saved after all.
+     */
+    public Optional<Entry> lastLogged(UUID uuid, TransactionType type, long since) {
+        return transaction("check whether a change was saved", c -> {
+            try (PreparedStatement ps = c.prepareStatement("SELECT id, type, amount, fee, balance_after, other_uuid, "
+                    + "other_name, actor, created_at FROM " + p + "transactions WHERE account = ? AND type = ? "
+                    + "AND created_at >= ? ORDER BY id DESC LIMIT 1")) {
+                ps.setString(1, uuid.toString());
+                ps.setString(2, type.name());
+                ps.setLong(3, since);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return Optional.<Entry>empty();
+                    String other = rs.getString("other_uuid");
+                    return Optional.of(new Entry(rs.getLong("id"), type, Money.fromCents(rs.getLong("amount")),
+                            Money.fromCents(rs.getLong("fee")), Money.fromCents(rs.getLong("balance_after")),
+                            other == null ? null : UUID.fromString(other), rs.getString("other_name"),
+                            rs.getString("actor"), rs.getLong("created_at")));
+                }
+            }
+        });
+    }
+
     // ------------------------------------------------------------------ leaderboard and reports
 
     /** The richest accounts, richest first (ties: the name decides). */
@@ -400,10 +481,10 @@ public final class BankStore {
     /** Number of accounts and all their money together. */
     public Totals totals() {
         return transaction("add up all accounts", c -> {
-            try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*), COALESCE(SUM(balance), 0) FROM " + p + "accounts");
+            try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*), " + dialect.sum("balance") + " FROM " + p + "accounts");
                  ResultSet rs = ps.executeQuery()) {
                 rs.next();
-                return new Totals(rs.getLong(1), Money.fromCents(rs.getLong(2)));
+                return new Totals(rs.getLong(1), centsSum(rs, 2));
             }
         });
     }
@@ -412,8 +493,8 @@ public final class BankStore {
     public List<Activity> activity(long since) {
         return transaction("add up recent transactions", c -> {
             List<Activity> result = new ArrayList<>();
-            try (PreparedStatement ps = c.prepareStatement("SELECT type, COUNT(*), COALESCE(SUM(amount), 0), "
-                    + "COALESCE(SUM(fee), 0) FROM " + p + "transactions WHERE created_at >= ? GROUP BY type")) {
+            try (PreparedStatement ps = c.prepareStatement("SELECT type, COUNT(*), " + dialect.sum("amount") + ", "
+                    + dialect.sum("fee") + " FROM " + p + "transactions WHERE created_at >= ? GROUP BY type")) {
                 ps.setLong(1, since);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -423,7 +504,7 @@ public final class BankStore {
                         } catch (IllegalArgumentException e) {
                             continue; // written by a newer dkBank
                         }
-                        result.add(new Activity(type, rs.getLong(2), Money.fromCents(rs.getLong(3)), Money.fromCents(rs.getLong(4))));
+                        result.add(new Activity(type, rs.getLong(2), centsSum(rs, 3), centsSum(rs, 4)));
                     }
                 }
             }
@@ -435,18 +516,25 @@ public final class BankStore {
     public List<Earner> topBy(TransactionType type, long since, int limit) {
         return transaction("find top earners", c -> {
             List<Earner> result = new ArrayList<>();
-            try (PreparedStatement ps = c.prepareStatement("SELECT a.name, SUM(t.amount) AS total FROM " + p + "transactions t "
+            try (PreparedStatement ps = c.prepareStatement("SELECT a.name, " + dialect.sum("t.amount") + " AS total FROM " + p + "transactions t "
                     + "JOIN " + p + "accounts a ON a.uuid = t.account WHERE t.type = ? AND t.created_at >= ? "
                     + "GROUP BY a.uuid, a.name ORDER BY total DESC LIMIT ?")) {
                 ps.setString(1, type.name());
                 ps.setLong(2, since);
                 ps.setInt(3, limit);
                 try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) result.add(new Earner(rs.getString(1), Money.fromCents(rs.getLong(2))));
+                    while (rs.next()) result.add(new Earner(rs.getString(1), centsSum(rs, 2)));
                 }
             }
             return result;
         });
+    }
+
+    /** A sum of cents, which can be bigger than a long holds (it's only shown, never stored). */
+    private static BigDecimal centsSum(ResultSet rs, int column) throws SQLException {
+        BigDecimal cents = rs.getBigDecimal(column);
+        if (cents == null) return Money.ZERO;
+        return cents.movePointLeft(2).setScale(Money.SCALE, java.math.RoundingMode.DOWN);
     }
 
     // ------------------------------------------------------------------ alt accounts
@@ -582,7 +670,9 @@ public final class BankStore {
             if (plan.offlineEnabled()) {
                 interest = interest.add(InterestMath.compounding(base, plan.offlineRate(), offline, plan.offlinePeriodMillis()));
             }
-            BigDecimal paid = InterestMath.limit(interest, plan.maxPerPayout(), limit(maxBalance).subtract(row.balance()));
+            BigDecimal paid = InterestMath.limit(interest,
+                    maxFor(plan, row.activeMillis() + row.afkMillis(), plan.offlineEnabled() ? offline : 0),
+                    limit(maxBalance).subtract(row.balance()));
             BigDecimal after = row.balance().add(paid);
             writeInterest(c, uuid, after, after, 0, 0, now);
             if (paid.signum() > 0) log(c, uuid, TransactionType.INTEREST, paid, Money.ZERO, after, null, null, "offline");
@@ -595,32 +685,60 @@ public final class BankStore {
      * the cycle reaches a full online period. Active time earns the online rate, AFK time the offline rate.
      */
     public Payout beat(Beat beat) {
+        return transaction("update interest progress", c -> beat(c, beat));
+    }
+
+    /**
+     * {@link #beat(Beat)} for many players in one transaction: one disk write for everyone online, so a
+     * busy server's minute of interest takes milliseconds instead of holding the database for long.
+     *
+     * @return one payout per beat, in the same order
+     */
+    public List<Payout> beatAll(List<Beat> beats) {
+        if (beats.isEmpty()) return List.of();
         return transaction("update interest progress", c -> {
-            Optional<InterestState> found = readInterest(c, beat.uuid(), true);
-            if (found.isEmpty()) return Payout.none(Money.ZERO);
-            InterestState row = found.get();
-            long now = clock.getAsLong();
-            InterestPlan plan = beat.plan();
-            long elapsed = Math.max(0, beat.elapsedMillis());
-            long active = row.activeMillis() + (beat.active() ? elapsed : 0);
-            long afk = row.afkMillis() + (beat.active() ? 0 : elapsed);
-
-            if (active + afk < plan.onlinePeriodMillis()) {
-                writeInterest(c, beat.uuid(), row.balance(), row.base(), active, afk, now);
-                return new Payout(Money.ZERO, 0, row.balance(), active + afk);
-            }
-
-            // Pay exactly one period; the few seconds past it start the next cycle.
-            long excess = active + afk - plan.onlinePeriodMillis();
-            if (beat.active()) active -= excess; else afk -= excess;
-            BigDecimal base = InterestMath.earningBase(row.base(), plan.cap());
-            BigDecimal paid = InterestMath.limit(cycleInterest(base, active, afk, plan), plan.maxPerPayout(),
-                    limit(beat.maxBalance()).subtract(row.balance()));
-            BigDecimal after = row.balance().add(paid);
-            writeInterest(c, beat.uuid(), after, after, beat.active() ? excess : 0, beat.active() ? 0 : excess, now);
-            if (paid.signum() > 0) log(c, beat.uuid(), TransactionType.INTEREST, paid, Money.ZERO, after, null, null, "online");
-            return new Payout(paid, 0, after, excess);
+            List<Payout> payouts = new ArrayList<>(beats.size());
+            for (Beat beat : beats) payouts.add(beat(c, beat));
+            return payouts;
         });
+    }
+
+    private Payout beat(Connection c, Beat beat) throws SQLException {
+        Optional<InterestState> found = readInterest(c, beat.uuid(), true);
+        if (found.isEmpty()) return Payout.none(Money.ZERO);
+        InterestState row = found.get();
+        InterestPlan plan = beat.plan();
+        long elapsed = elapsedSince(row, beat);
+        long active = row.activeMillis() + (beat.active() ? elapsed : 0);
+        long afk = row.afkMillis() + (beat.active() ? 0 : elapsed);
+
+        long period = plan.onlinePeriodMillis();
+        if (active + afk < period) {
+            writeInterest(c, beat.uuid(), row.balance(), row.base(), active, afk, beat.at());
+            return new Payout(Money.ZERO, 0, row.balance(), active + afk);
+        }
+
+        // Pay exactly one period; the time past it starts the next cycle. The excess comes off the
+        // current kind of time first, then the other (more than a period is stored only if the period
+        // was shortened in config.yml).
+        long excess = active + afk - period;
+        long fromCurrent = Math.min(excess, beat.active() ? active : afk);
+        long fromOther = excess - fromCurrent;
+        if (beat.active()) {
+            active -= fromCurrent;
+            afk -= fromOther;
+        } else {
+            afk -= fromCurrent;
+            active -= fromOther;
+        }
+        long carried = Math.min(excess, period - 1);
+        BigDecimal base = InterestMath.earningBase(row.base(), plan.cap());
+        BigDecimal paid = InterestMath.limit(cycleInterest(base, active, afk, plan), maxFor(plan, period, 0),
+                limit(beat.maxBalance()).subtract(row.balance()));
+        BigDecimal after = row.balance().add(paid);
+        writeInterest(c, beat.uuid(), after, after, beat.active() ? carried : 0, beat.active() ? 0 : carried, beat.at());
+        if (paid.signum() > 0) log(c, beat.uuid(), TransactionType.INTEREST, paid, Money.ZERO, after, null, null, "online");
+        return new Payout(paid, 0, after, carried);
     }
 
     /** At logout: adds the last bit of time and pays the unfinished cycle, prorated. */
@@ -629,19 +747,43 @@ public final class BankStore {
             Optional<InterestState> found = readInterest(c, beat.uuid(), true);
             if (found.isEmpty()) return Payout.none(Money.ZERO);
             InterestState row = found.get();
-            long elapsed = Math.max(0, beat.elapsedMillis());
+            long elapsed = elapsedSince(row, beat);
             long active = row.activeMillis() + (beat.active() ? elapsed : 0);
             long afk = row.afkMillis() + (beat.active() ? 0 : elapsed);
 
             InterestPlan plan = beat.plan();
             BigDecimal base = InterestMath.earningBase(row.base(), plan.cap());
-            BigDecimal paid = InterestMath.limit(cycleInterest(base, active, afk, plan), plan.maxPerPayout(),
+            BigDecimal paid = InterestMath.limit(cycleInterest(base, active, afk, plan), maxFor(plan, active + afk, 0),
                     limit(beat.maxBalance()).subtract(row.balance()));
             BigDecimal after = row.balance().add(paid);
-            writeInterest(c, beat.uuid(), after, after, 0, 0, clock.getAsLong());
+            writeInterest(c, beat.uuid(), after, after, 0, 0, beat.at());
             if (paid.signum() > 0) log(c, beat.uuid(), TransactionType.INTEREST, paid, Money.ZERO, after, null, null, "online");
             return new Payout(paid, 0, after, 0);
         });
+    }
+
+    /**
+     * Time to add for a heartbeat or logout. If the account was touched more recently than this server's
+     * last heartbeat (the player already joined another server sharing the database), only the time since
+     * then counts, so the same minutes are never paid twice.
+     */
+    private static long elapsedSince(InterestState row, Beat beat) {
+        long elapsed = Math.max(0, beat.elapsedMillis());
+        long start = beat.at() - elapsed;
+        if (row.lastSeen() > start) elapsed = Math.max(0, Math.min(elapsed, beat.at() - row.lastSeen()));
+        return elapsed;
+    }
+
+    /**
+     * The most a payout may be: the plan's maximum per payout, scaled by the time it covers (in online and
+     * offline periods). Logging out and back in often can't collect the maximum each time.
+     */
+    private static @Nullable BigDecimal maxFor(InterestPlan plan, long onlineMillis, long offlineMillis) {
+        BigDecimal max = plan.maxPerPayout();
+        if (max == null) return null;
+        BigDecimal periods = BigDecimal.valueOf(onlineMillis).divide(BigDecimal.valueOf(plan.onlinePeriodMillis()), 10, java.math.RoundingMode.DOWN)
+                .add(BigDecimal.valueOf(offlineMillis).divide(BigDecimal.valueOf(plan.offlinePeriodMillis()), 10, java.math.RoundingMode.DOWN));
+        return Money.floor(max.multiply(periods));
     }
 
     /** Interest for one cycle: active time at the online rate, AFK time at the offline rate. */

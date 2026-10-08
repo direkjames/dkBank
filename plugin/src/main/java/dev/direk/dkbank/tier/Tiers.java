@@ -66,6 +66,7 @@ public final class Tiers {
                 continue;
             }
             Reader r = new Reader(values, where, log);
+            r.warnUnknown();
             boolean first = tiers.isEmpty();
             BigDecimal cost = r.amount("upgrade-cost", "0");
             BigDecimal cap = r.amount("interest.cap", "0");
@@ -135,8 +136,29 @@ public final class Tiers {
         return Optional.empty();
     }
 
+    private static final java.util.Set<String> KNOWN = java.util.Set.of("display-name", "icon", "upgrade-cost",
+            "buyable", "max-balance", "interest");
+    private static final java.util.Set<String> KNOWN_INTEREST = java.util.Set.of("online-rate", "offline-rate", "cap",
+            "max-per-payout");
+
     /** Values of one tier, read with logging and fallbacks. */
     private record Reader(Map<?, ?> values, String where, Logger log) {
+
+        /** Settings a tier doesn't have are usually typos ("upgrade-price:"), which silently do nothing. */
+        void warnUnknown() {
+            for (Object key : values.keySet()) {
+                if (!KNOWN.contains(String.valueOf(key))) {
+                    log.warning(where + "." + key + " isn't a tier setting (a typo?). It's ignored.");
+                }
+            }
+            if (values.get("interest") instanceof Map<?, ?> interest) {
+                for (Object key : interest.keySet()) {
+                    if (!KNOWN_INTEREST.contains(String.valueOf(key))) {
+                        log.warning(where + ".interest." + key + " isn't an interest setting (a typo?). It's ignored.");
+                    }
+                }
+            }
+        }
 
         @Nullable Object get(String path) {
             Object current = values;

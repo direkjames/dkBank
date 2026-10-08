@@ -117,10 +117,12 @@ public final class MenuLayout {
                 int dash = part.indexOf('-', 1);
                 int from = Integer.parseInt((dash < 0 ? part : part.substring(0, dash)).trim());
                 int to = dash < 0 ? from : Integer.parseInt(part.substring(dash + 1).trim());
-                for (int i = Math.min(from, to); i <= Math.max(from, to); i++) {
-                    if (i >= 0 && i < size) result.add(i);
-                    else log.warning(where + ": slot " + i + " is outside the menu (0-" + (size - 1) + ").");
+                int low = Math.min(from, to);
+                int high = Math.max(from, to);
+                if (low < 0 || high >= size) {
+                    log.warning(where + ": '" + part + "' goes outside the menu (slots 0-" + (size - 1) + "). Only the slots inside are used.");
                 }
+                for (int i = Math.max(0, low); i <= Math.min(size - 1, high); i++) result.add(i);
             } catch (NumberFormatException e) {
                 log.warning(where + ": '" + part + "' isn't a slot number or range like 10-16.");
             }

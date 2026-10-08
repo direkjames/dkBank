@@ -12,7 +12,7 @@ The API classes are inside the dkBank jar on the server. Your plugin only compil
 
 ```kotlin
 dependencies {
-    compileOnly(files("libs/dkBank-API-0.6.0.jar"))
+    compileOnly(files("libs/dkBank-API-1.0.0.jar"))
 }
 ```
 
@@ -20,7 +20,7 @@ Or, after `./gradlew :api:publishToMavenLocal` in the dkBank project:
 
 ```kotlin
 repositories { mavenLocal() }
-dependencies { compileOnly("dev.direk:dkBank-API:0.6.0") }
+dependencies { compileOnly("dev.direk:dkBank-API:1.0.0") }
 ```
 
 **plugin.yml**

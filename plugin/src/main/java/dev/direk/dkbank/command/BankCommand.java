@@ -120,6 +120,7 @@ public final class BankCommand {
                         || src.getSender().hasPermission("dkbank.admin.tier")
                         || src.getSender().hasPermission("dkbank.admin.alts")
                         || src.getSender().hasPermission("dkbank.admin.economy")
+                        || src.getSender().hasPermission("dkbank.admin.info")
                         || src.getSender().hasPermission("dkbank.admin.reload"))
                 .executes(this::help)
                 .then(Commands.literal("give").requires(perm("dkbank.admin.give"))
@@ -155,6 +156,10 @@ public final class BankCommand {
                                             StringArgumentType.getString(ctx, "tier"));
                                     return Command.SINGLE_SUCCESS;
                                 }))))
+                .then(Commands.literal("info").requires(perm("dkbank.admin.info")).executes(ctx -> {
+                    plugin.sendInfo(sender(ctx));
+                    return Command.SINGLE_SUCCESS;
+                }))
                 .then(Commands.literal("economy").requires(perm("dkbank.admin.economy"))
                         .executes(ctx -> {
                             plugin.reports().economy(sender(ctx), 7);
@@ -265,8 +270,9 @@ public final class BankCommand {
     }
 
     private int reload(CommandContext<CommandSourceStack> ctx) {
-        plugin.reloadFiles();
-        bank().messages().send(sender(ctx), "admin.reloaded");
+        String broken = plugin.reloadFiles();
+        if (broken == null) bank().messages().send(sender(ctx), "admin.reloaded");
+        else bank().messages().send(sender(ctx), "admin.reload-failed", Map.of("file", broken));
         return Command.SINGLE_SUCCESS;
     }
 

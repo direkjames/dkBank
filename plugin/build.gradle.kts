@@ -14,6 +14,7 @@ dependencies {
     implementation(libs.hikaricp) {
         exclude(group = "org.slf4j") // the server already provides SLF4J
     }
+    implementation(libs.bstats)
 
     compileOnly(libs.paper.api)
     compileOnly(libs.vault.api) { isTransitive = false }
@@ -23,6 +24,7 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.paper.api)
     testImplementation(libs.sqlite.jdbc)
+    testRuntimeOnly(libs.mysql.connector)
     testRuntimeOnly(libs.junit.launcher)
 }
 
@@ -42,6 +44,7 @@ tasks {
         archiveFileName.set("dkBank-${project.version}.jar")
         // Move bundled libraries into our own package so they can't clash with other plugins.
         relocate("com.zaxxer.hikari", "dev.direk.dkbank.libs.hikari")
+        relocate("org.bstats", "dev.direk.dkbank.libs.bstats") // bStats requires its own package per plugin
         from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF") }
         mergeServiceFiles()
     }

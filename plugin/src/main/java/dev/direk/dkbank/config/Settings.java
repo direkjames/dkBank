@@ -40,6 +40,8 @@ public record Settings(
         Menus menus,
         Alts alts,
         Top top,
+        boolean metrics,
+        boolean updateChecker,
         Storage storage
 ) {
 
@@ -207,6 +209,8 @@ public record Settings(
                         check.duration(c, "leaderboard.refresh", "5m", Duration.ofMinutes(1)),
                         c.getStringList("leaderboard.hidden").stream().map(n -> n.trim().toLowerCase(Locale.ROOT))
                                 .collect(Collectors.toUnmodifiableSet())),
+                c.getBoolean("metrics", true),
+                c.getBoolean("update-checker", true),
                 storage);
     }
 

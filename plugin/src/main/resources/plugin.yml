@@ -62,6 +62,7 @@ permissions:
       dkbank.admin.tier: true
       dkbank.admin.alts: true
       dkbank.admin.economy: true
+      dkbank.admin.info: true
       dkbank.balance.others: true
   dkbank.admin.give:
     description: Add money to a bank account.
@@ -86,6 +87,9 @@ permissions:
     default: op
   dkbank.admin.economy:
     description: See the economy report (/bank admin economy).
+    default: op
+  dkbank.admin.info:
+    description: See versions and setup (/bank admin info), for support requests.
     default: op
   dkbank.alts.bypass:
     description: Never locked by the alt-account limit.

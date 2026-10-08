@@ -94,7 +94,18 @@ public final class AltGuard {
 
     /** Whether the player's bank is locked right now. Main thread (checks the bypass permission). */
     public boolean isLocked(Player player) {
-        return isLocked(player.getUniqueId(), player.hasPermission(BYPASS));
+        boolean bypass = player.hasPermission(BYPASS);
+        if (bypass) bypassing.add(player.getUniqueId());
+        else bypassing.remove(player.getUniqueId());
+        return isLocked(player.getUniqueId(), bypass);
+    }
+
+    /** Players with the bypass permission, as last checked on the main thread (for other threads). */
+    private final Set<UUID> bypassing = ConcurrentHashMap.newKeySet();
+
+    /** Like {@link #isLocked(Player)} from any thread, using the bypass permission as last checked. */
+    public boolean isLockedCached(UUID uuid) {
+        return isLocked(uuid, bypassing.contains(uuid));
     }
 
     /** Like {@link #isLocked(Player)}, with the bypass permission already checked. Any thread. */
@@ -104,6 +115,7 @@ public final class AltGuard {
 
     public void forget(UUID uuid) {
         locked.remove(uuid);
+        bypassing.remove(uuid);
     }
 
     public void clear() {

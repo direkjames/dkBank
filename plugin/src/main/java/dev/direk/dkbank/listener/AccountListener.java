@@ -30,10 +30,17 @@ public final class AccountListener implements Listener {
         plugin.bank().loadAccount(event.getUniqueId(), event.getName(), event.getAddress());
     }
 
-    /** Tells players locked by the alt-account limit why, a moment after they join. */
+    /** Tells players locked by the alt-account limit why, and staff about updates, a moment after they join. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        String newer = plugin.updates().newerVersion();
+        if (newer != null && player.hasPermission("dkbank.admin") && plugin.bank().settings().updateChecker()) {
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) plugin.bank().messages().send(player, "admin.update-available",
+                        java.util.Map.of("version", newer, "current", plugin.version()));
+            }, 80L);
+        }
         if (!plugin.bank().settings().alts().tellPlayer()) return;
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline() && plugin.bank().locked(player)) {
@@ -45,8 +52,14 @@ public final class AccountListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        plugin.bank().unload(event.getPlayer().getUniqueId());
-        plugin.tiers().forget(event.getPlayer().getUniqueId());
+        java.util.UUID uuid = event.getPlayer().getUniqueId();
+        // A tick later, and only if they didn't just log in again (a duplicate login quits the old session
+        // after the new one loaded its account).
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (plugin.getServer().getPlayer(uuid) != null) return;
+            plugin.bank().unload(uuid);
+            plugin.tiers().forget(uuid);
+        });
     }
 
     /** Economy plugins can register after dkBank enables; look again when they do. */

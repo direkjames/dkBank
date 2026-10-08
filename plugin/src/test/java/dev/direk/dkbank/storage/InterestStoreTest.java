@@ -66,7 +66,7 @@ class InterestStoreTest {
 
     private Beat beat(long millis, boolean active, InterestPlan plan, String maxBalance) {
         clock.addAndGet(millis);
-        return new Beat(ALICE, millis, active, plan, maxBalance == null ? null : $(maxBalance));
+        return new Beat(ALICE, millis, clock.get(), active, plan, maxBalance == null ? null : $(maxBalance));
     }
 
     private Beat beat(long millis, boolean active) {
@@ -257,5 +257,57 @@ class InterestStoreTest {
         assertEquals($("100.00"), entry.amount());
         assertEquals("online", entry.actor());
         assertTrue(entry.balanceAfter().compareTo($("10100")) == 0);
+    }
+
+    // ------------------------------------------------------------------ hardening
+
+    @Test
+    void relogsCantCollectTheMaximumEachTime() throws Exception {
+        BankStore store = aliceWith("100000"); // 1% of 100k = 1,000 an hour; at most 120 per hour of payouts
+        InterestPlan capped = plan(null, "120");
+        BigDecimal total = BigDecimal.ZERO;
+        for (int i = 0; i < 12; i++) { // 12 logouts after 5 minutes each = one hour
+            total = total.add(store.settleLogout(beat(5 * MINUTE, true, capped, null)).amount());
+            store.settleLogin(ALICE, capped, null); // straight back in: no time offline
+        }
+        assertTrue(total.compareTo($("120.00")) <= 0, "an hour of relogs paid " + total);
+    }
+
+    @Test
+    void anotherServerAlreadyCountedTheTime() throws Exception {
+        BankStore store = aliceWith("10000");
+        store.beat(beat(MINUTE, true)); // server A
+        clock.addAndGet(30_000);
+        store.settleLogin(ALICE, PLAN, null); // the player joins server B 30 s later
+        clock.addAndGet(30_000);
+        // Server A sees them leave a minute after its last heartbeat; B already counted the last 30 s.
+        Payout logout = store.settleLogout(new Beat(ALICE, MINUTE, clock.get(), true, PLAN, null));
+        assertEquals($("0.83"), logout.amount()); // 30 s at 1%/h of 10,000, not a whole minute (1.66)
+    }
+
+    @Test
+    void shorterPeriodDoesntPayTwice() throws Exception {
+        BankStore store = aliceWith("10000");
+        store.beat(beat(50 * MINUTE, true));
+        // The owner shortens the online period to 30 minutes; the next heartbeat is AFK.
+        InterestPlan half = new InterestPlan(true, ONE, 30 * MINUTE, true, ONE, DAY, 7 * DAY, null, null);
+        Payout first = store.beat(beat(MINUTE, false, half, null));
+        assertEquals($("100.00"), first.amount(), "one 30-minute period at 1% per 30m, not 1.7");
+        assertTrue(first.cycleMillis() < 30 * MINUTE, "carried " + first.cycleMillis());
+        InterestState s = state(store);
+        assertTrue(s.activeMillis() >= 0 && s.afkMillis() >= 0);
+    }
+
+    @Test
+    void batchedHeartbeatsMatchSingleOnes() throws Exception {
+        BankStore single = aliceWith("10000");
+        long at = clock.get();
+        Payout one = single.beat(beat(HOUR, true));
+        clock.set(at);
+        BankStore batched = aliceWith("10000");
+        Payout many = batched.beatAll(java.util.List.of(beat(HOUR, true))).getFirst();
+        assertEquals(one.amount(), many.amount());
+        assertEquals(one.balance(), many.balance());
+        assertTrue(batched.beatAll(java.util.List.of()).isEmpty());
     }
 }

@@ -145,6 +145,16 @@ class TiersTest {
     }
 
     @Test
+    void typosAreReported() {
+        Map<String, Object> values = tier(100, 0, 1000, "upgrade-price", 5);
+        @SuppressWarnings("unchecked") Map<String, Object> interest = (Map<String, Object>) values.get("interest");
+        interest.put("onlin-rate", 2);
+        Tiers.parse(Map.of("silver", values), TEMPLATE, log);
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("upgrade-price")), String.valueOf(warnings));
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("onlin-rate")), String.valueOf(warnings));
+    }
+
+    @Test
     void decimalRates() {
         Map<String, Object> interest = new LinkedHashMap<>();
         interest.put("online-rate", 0.5);    // YAML numbers arrive as doubles

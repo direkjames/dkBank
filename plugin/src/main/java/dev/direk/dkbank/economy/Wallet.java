@@ -15,7 +15,7 @@ import java.math.BigDecimal;
  */
 public final class Wallet {
 
-    private @Nullable VaultHook hook;
+    private volatile @Nullable VaultHook hook;
 
     private @Nullable VaultHook hook() {
         if (hook == null && Bukkit.getPluginManager().getPlugin("Vault") != null) {
@@ -48,16 +48,30 @@ public final class Wallet {
         return h == null ? Money.ZERO : Money.fromDouble(h.balance(player));
     }
 
-    /** @return true if the money was taken from the wallet */
+    /** @return true if the money was taken from the wallet (false also if the economy plugin failed) */
     public boolean take(OfflinePlayer player, BigDecimal amount) {
         VaultHook h = hook();
-        return h != null && h.withdraw(player, amount.doubleValue());
+        if (h == null) return false;
+        try {
+            return h.withdraw(player, amount.doubleValue());
+        } catch (RuntimeException | LinkageError e) {
+            Bukkit.getLogger().log(java.util.logging.Level.SEVERE, "[dkBank] The economy plugin failed while taking "
+                    + amount.toPlainString() + " from " + player.getName() + "'s wallet. Check their wallet.", e);
+            return false;
+        }
     }
 
-    /** @return true if the money was added to the wallet */
+    /** @return true if the money was added to the wallet (false also if the economy plugin failed) */
     public boolean give(OfflinePlayer player, BigDecimal amount) {
         VaultHook h = hook();
-        return h != null && h.deposit(player, amount.doubleValue());
+        if (h == null) return false;
+        try {
+            return h.deposit(player, amount.doubleValue());
+        } catch (RuntimeException | LinkageError e) {
+            Bukkit.getLogger().log(java.util.logging.Level.SEVERE, "[dkBank] The economy plugin failed while adding "
+                    + amount.toPlainString() + " to " + player.getName() + "'s wallet.", e);
+            return false;
+        }
     }
 
     /** @return the economy plugin's own formatting of the amount, or null if unavailable */

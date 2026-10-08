@@ -1,7 +1,6 @@
 package dev.direk.dkbank.hook;
 
 import dev.direk.dkbank.DkBankPlugin;
-import dev.direk.dkbank.bank.AltGuard;
 import dev.direk.dkbank.bank.BankService;
 import dev.direk.dkbank.bank.Leaderboard;
 import dev.direk.dkbank.storage.StoreTypes.TopEntry;
@@ -81,7 +80,7 @@ public final class DkBankExpansion extends PlaceholderExpansion {
         // Server-wide values
         switch (p) {
             case "total" -> {
-                return bank.fmt(top.totals().balance());
+                return bank.fmtAnyThread(top.totals().balance());
             }
             case "total_short" -> {
                 return bank.fmtShort(top.totals().balance());
@@ -107,22 +106,22 @@ public final class DkBankExpansion extends PlaceholderExpansion {
         Player online = player.getPlayer();
 
         return switch (p) {
-            case "balance" -> balance == null ? "" : bank.fmt(balance);
+            case "balance" -> balance == null ? "" : bank.fmtAnyThread(balance);
             case "balance_short" -> balance == null ? "" : bank.fmtShort(balance);
             case "balance_full" -> balance == null ? "" : bank.settings().format().format(balance);
             case "balance_raw" -> balance == null ? "" : balance.toPlainString();
-            case "max_balance" -> tier.maxBalance() == null ? text("tiers.no-limit") : bank.fmt(tier.maxBalance());
+            case "max_balance" -> tier.maxBalance() == null ? text("tiers.no-limit") : bank.fmtAnyThread(tier.maxBalance());
             case "room" -> tier.maxBalance() == null || balance == null ? text("tiers.no-limit")
-                    : bank.fmt(tier.maxBalance().subtract(balance).max(BigDecimal.ZERO));
+                    : bank.fmtAnyThread(tier.maxBalance().subtract(balance).max(BigDecimal.ZERO));
             case "tier" -> LEGACY.serialize(MiniMessage.miniMessage().deserialize(tier.displayName()));
             case "tier_plain" -> PlainTextComponentSerializer.plainText().serialize(MiniMessage.miniMessage().deserialize(tier.displayName()));
             case "tier_id" -> tier.id();
             case "next_tier" -> bank.tiers().nextBuyable(tier)
                     .map(t -> LEGACY.serialize(MiniMessage.miniMessage().deserialize(t.displayName()))).orElse("");
-            case "next_tier_cost" -> bank.tiers().nextBuyable(tier).map(t -> bank.fmt(t.cost())).orElse("");
+            case "next_tier_cost" -> bank.tiers().nextBuyable(tier).map(t -> bank.fmtAnyThread(t.cost())).orElse("");
             case "online_rate" -> tier.plan().onlineRate().toPlainString();
             case "offline_rate" -> tier.plan().offlineRate().toPlainString();
-            case "cap" -> tier.plan().cap() == null ? text("tiers.no-limit") : bank.fmt(tier.plan().cap());
+            case "cap" -> tier.plan().cap() == null ? text("tiers.no-limit") : bank.fmtAnyThread(tier.plan().cap());
             case "next_payout" -> {
                 long until = plugin.interest().untilPayout(uuid, tier.plan().onlinePeriodMillis());
                 yield until < 0 ? "" : TimeText.format(Duration.ofMillis(until));
@@ -131,8 +130,7 @@ public final class DkBankExpansion extends PlaceholderExpansion {
                 long until = plugin.interest().untilPayout(uuid, tier.plan().onlinePeriodMillis());
                 yield until < 0 ? "" : String.valueOf(until / 1000);
             }
-            case "locked" -> String.valueOf(online != null
-                    && bank.alts().isLocked(uuid, online.hasPermission(AltGuard.BYPASS)));
+            case "locked" -> String.valueOf(online != null && bank.alts().isLockedCached(uuid)); // no permission checks off-thread
             case "rank" -> {
                 int rank = top.rank(uuid);
                 yield rank == 0 ? "-" : String.valueOf(rank);
@@ -154,7 +152,7 @@ public final class DkBankExpansion extends PlaceholderExpansion {
         Optional<TopEntry> entry = Optional.ofNullable(top.at(place));
         return switch (kind) {
             case "top_name" -> entry.map(TopEntry::name).orElse("-");
-            case "top_balance" -> entry.map(e -> bank.fmt(e.balance())).orElse("-");
+            case "top_balance" -> entry.map(e -> bank.fmtAnyThread(e.balance())).orElse("-");
             case "top_balance_short" -> entry.map(e -> bank.fmtShort(e.balance())).orElse("-");
             default -> null;
         };

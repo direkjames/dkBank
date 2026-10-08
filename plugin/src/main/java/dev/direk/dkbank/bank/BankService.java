@@ -88,6 +88,9 @@ public final class BankService {
     private final Set<UUID> busy = new HashSet<>(); // main thread only
     private final Map<UUID, BigDecimal> balances = new ConcurrentHashMap<>();
     private final AltGuard alts;
+    /** When each cached account was loaded, so accounts of players who never joined (denied logins) are dropped. */
+    private final Map<UUID, Long> loadedAt = new ConcurrentHashMap<>();
+    private @Nullable BukkitTask sweepTask;
     /** Bought tier of loaded accounts ("" = the first tier). */
     private final Map<UUID, String> boughtTiers = new ConcurrentHashMap<>();
     /** Current tier of online players, bought or from a permission. Refreshed on the main thread. */
@@ -113,20 +116,35 @@ public final class BankService {
 
     public void start() {
         drainTask = Bukkit.getScheduler().runTaskTimer(plugin, this::drain, 1L, 1L);
+        sweepTask = Bukkit.getScheduler().runTaskTimer(plugin, this::sweep, 1200L, 1200L);
     }
 
     /** Finishes every operation in progress (including refunds) before returning. */
     public void shutdown() {
+        if (sweepTask != null) sweepTask.cancel();
         workers.shutdown();
         try {
             if (!workers.awaitTermination(20, TimeUnit.SECONDS)) {
-                plugin.getLogger().severe("Some bank operations didn't finish within 20 seconds of shutdown.");
+                plugin.getLogger().severe("Some bank operations didn't finish within 20 seconds of shutdown. "
+                        + "Stopping them; anything listed below may need checking by hand.");
+                List<Runnable> unstarted = workers.shutdownNow();
+                if (!unstarted.isEmpty()) plugin.getLogger().severe(unstarted.size() + " bank operations never started.");
+                workers.awaitTermination(5, TimeUnit.SECONDS);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        drain();
+        drain(); // results and refunds still waiting; bank refunds now run right here (the workers are stopped)
         if (drainTask != null) drainTask.cancel();
+    }
+
+    /** Drops cached accounts of players who aren't online (left mid-operation, or their login was denied). */
+    private void sweep() {
+        long cutoff = System.currentTimeMillis() - 60_000L;
+        for (UUID uuid : List.copyOf(loadedAt.keySet())) {
+            Long at = loadedAt.get(uuid);
+            if (at != null && at < cutoff && Bukkit.getPlayer(uuid) == null) unload(uuid);
+        }
     }
 
     public void reload(Settings settings, Messages messages, Tiers tiers) {
@@ -191,12 +209,14 @@ public final class BankService {
         balances.remove(uuid);
         boughtTiers.remove(uuid);
         onlineTiers.remove(uuid);
+        loadedAt.remove(uuid);
         alts.forget(uuid);
     }
 
     private void remember(Account account) {
         balances.put(account.uuid(), account.balance());
         boughtTiers.put(account.uuid(), account.tier() == null ? "" : account.tier());
+        loadedAt.put(account.uuid(), System.currentTimeMillis());
     }
 
     // ------------------------------------------------------------------ tiers
@@ -321,6 +341,7 @@ public final class BankService {
 
         BigDecimal deposited = amount;
         String name = player.getName();
+        long startedAt = System.currentTimeMillis() - 1000;
         busy.add(uuid);
         async(() -> {
             ensure(uuid, name);
@@ -328,7 +349,7 @@ public final class BankService {
         }, result -> {
             busy.remove(uuid);
             if (result.ok()) {
-                balances.put(uuid, result.balance());
+                cacheBalance(uuid, result.balance());
                 send(player, "deposit-success", vars("amount", fmt(deposited), "balance", fmt(result.balance())));
                 changed(uuid, TransactionType.DEPOSIT, deposited, Money.ZERO, result.balance(), null, null);
                 done.finish(true);
@@ -341,8 +362,23 @@ public final class BankService {
             }
         }, error -> {
             busy.remove(uuid);
-            refundWallet(uuid, deposited);
             fail(player, "deposit", error);
+            if (error instanceof BankStore.CommitUncertainException) {
+                // It may have been saved: only refund the wallet if it wasn't.
+                long since = startedAt;
+                async(() -> store.lastLogged(uuid, TransactionType.DEPOSIT, since), saved -> {
+                    if (saved.isPresent() && saved.get().amount().compareTo(deposited) == 0) {
+                        plugin.getLogger().warning("The deposit of " + deposited.toPlainString() + " by " + name
+                                + " was saved after all; no refund needed.");
+                    } else {
+                        refundWallet(uuid, deposited);
+                    }
+                }, check -> plugin.getLogger().log(Level.SEVERE, "CHECK BY HAND: couldn't tell whether " + name
+                        + "'s deposit of " + deposited.toPlainString() + " was saved. If it isn't in their /bank "
+                        + "admin history, give it back to their wallet.", check));
+            } else {
+                refundWallet(uuid, deposited);
+            }
             done.finish(false);
         });
         return true;
@@ -373,6 +409,7 @@ public final class BankService {
         String name = player.getName();
         BigDecimal fee = s.withdrawFeePercent();
         Limits limits = limits(s);
+        long startedAt = System.currentTimeMillis() - 1000;
         busy.add(uuid);
         async(() -> {
             ensure(uuid, name);
@@ -384,7 +421,7 @@ public final class BankService {
                 done.finish(false);
                 return;
             }
-            balances.put(uuid, result.balance());
+            cacheBalance(uuid, result.balance());
             changed(uuid, TransactionType.WITHDRAW, result.amount(), result.fee(), result.balance(), null, null);
             BigDecimal received = result.amount().subtract(result.fee());
             boolean paid;
@@ -408,6 +445,17 @@ public final class BankService {
         }, error -> {
             busy.remove(uuid);
             fail(player, "withdraw", error);
+            if (error instanceof BankStore.CommitUncertainException) {
+                // If the withdrawal was saved after all, the player still gets the money.
+                async(() -> store.lastLogged(uuid, TransactionType.WITHDRAW, startedAt), saved -> {
+                    if (saved.isEmpty()) return;
+                    BigDecimal owed = saved.get().amount().subtract(saved.get().fee());
+                    if (!wallet.give(Bukkit.getOfflinePlayer(uuid), owed)) refundBank(uuid, saved.get().amount());
+                    plugin.getLogger().warning("The withdrawal by " + name + " was saved after all; paid "
+                            + owed.toPlainString() + " to their wallet.");
+                }, check -> plugin.getLogger().log(Level.SEVERE, "CHECK BY HAND: couldn't tell whether " + name
+                        + "'s withdrawal was saved. Compare their /bank admin history with their wallet.", check));
+            }
             done.finish(false);
         });
         return true;
@@ -481,8 +529,8 @@ public final class BankService {
                 done.finish(false);
                 return;
             }
-            balances.put(uuid, r.balance());
-            if (balances.containsKey(outcome.receiver())) balances.put(outcome.receiver(), t.receiverBalance());
+            cacheBalance(uuid, r.balance());
+            cacheBalance(outcome.receiver(), t.receiverBalance());
             changed(uuid, TransactionType.TRANSFER_OUT, r.amount(), r.fee(), r.balance(), outcome.receiver(), null);
             changed(outcome.receiver(), TransactionType.TRANSFER_IN, r.amount(), Money.ZERO, t.receiverBalance(), uuid, null);
             send(player, r.fee().signum() > 0 ? "pay-sent-fee" : "pay-sent", vars("amount", fmt(r.amount()),
@@ -510,7 +558,7 @@ public final class BankService {
             ensure(uuid, name);
             return store.account(uuid).map(Account::balance).orElse(Money.ZERO);
         }, balance -> {
-            balances.put(uuid, balance);
+            cacheBalance(uuid, balance);
             messages.send(player, "balance", vars("balance", fmt(balance), "wallet", fmt(wallet.balance(player))),
                     Map.of("tier", tierOf(player).displayName()));
         }, error -> fail(player, "balance", error));
@@ -623,7 +671,7 @@ public final class BankService {
             }
             return;
         }
-        if (balances.containsKey(account.uuid())) balances.put(account.uuid(), r.balance());
+        cacheBalance(account.uuid(), r.balance());
         changed(account.uuid(), type, r.amount(), Money.ZERO, r.balance(), null, sender.getName());
         send(sender, key, vars("player", account.name(), "amount", fmt(amount), "balance", fmt(r.balance())));
     }
@@ -692,6 +740,11 @@ public final class BankService {
     /** Always short: {@code $1.2M}. */
     public String fmtShort(BigDecimal amount) {
         return settings.format().compact(amount);
+    }
+
+    /** Like {@link #fmt}, but safe off the main thread: never asks the economy plugin (placeholders). */
+    public String fmtAnyThread(BigDecimal amount) {
+        return Bukkit.isPrimaryThread() ? fmt(amount) : settings.format().display(amount);
     }
 
     public String fmt(BigDecimal amount) {
@@ -768,6 +821,16 @@ public final class BankService {
     }
 
     private void refundBank(UUID uuid, BigDecimal amount) {
+        if (workers.isShutdown()) { // stopping: do it right now instead of queueing it
+            try {
+                StoreTypes.Result result = store.credit(uuid, amount, TransactionType.REFUND, null, "dkBank");
+                if (!result.ok()) throw new IllegalStateException(String.valueOf(result.failure()));
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(Level.SEVERE, "REFUND FAILED: couldn't return " + amount.toPlainString()
+                        + " to bank account " + uuid + ". Give it back manually.", e);
+            }
+            return;
+        }
         async(() -> store.credit(uuid, amount, TransactionType.REFUND, null, "dkBank"), result -> {
             if (result.ok()) {
                 balances.computeIfPresent(uuid, (k, v) -> result.balance());

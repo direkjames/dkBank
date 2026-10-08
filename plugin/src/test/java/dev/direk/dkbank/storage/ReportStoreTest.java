@@ -100,8 +100,8 @@ class ReportStoreTest {
         store.credit(A, $("1000"), TransactionType.DEPOSIT, null, null);
         InterestPlan plan = new InterestPlan(true, BigDecimal.ONE, HOUR, true, BigDecimal.ONE, DAY, 7 * DAY, null, null);
         store.settleLogin(A, plan, null);
-        assertEquals(20 * 60_000L, store.beat(new Beat(A, 20 * 60_000L, true, plan, null)).cycleMillis());
-        assertEquals(5 * 60_000L, store.beat(new Beat(A, 45 * 60_000L, true, plan, null)).cycleMillis(),
+        assertEquals(20 * 60_000L, store.beat(new Beat(A, 20 * 60_000L, clock.addAndGet(20 * 60_000L), true, plan, null)).cycleMillis());
+        assertEquals(5 * 60_000L, store.beat(new Beat(A, 45 * 60_000L, clock.addAndGet(45 * 60_000L), true, plan, null)).cycleMillis(),
                 "after a payout, the time past the hour is the start of the next");
     }
 }

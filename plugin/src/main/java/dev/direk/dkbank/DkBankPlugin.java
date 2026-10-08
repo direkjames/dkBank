@@ -43,6 +43,7 @@ public final class DkBankPlugin extends JavaPlugin {
     private @Nullable MenuManager menus;
     private @Nullable Leaderboard leaderboard;
     private @Nullable ReportService reports;
+    private final dev.direk.dkbank.util.UpdateChecker updates = new dev.direk.dkbank.util.UpdateChecker(this);
 
     /** Settings that moved out of config.yml, and where to. */
     private static final Map<String, String> MOVED = Map.of(
@@ -57,8 +58,18 @@ public final class DkBankPlugin extends JavaPlugin {
         String server = getServer().getName() + " " + getServer().getMinecraftVersion();
         getLogger().info("dkBank " + version() + " enabling on " + server + " (Java " + Runtime.version().feature() + ")");
 
-        Settings settings = Settings.load(ConfigFile.load(this, "config.yml", MOVED), getLogger());
-        Messages messages = new Messages(ConfigFile.load(this, "messages.yml"));
+        Settings settings;
+        Messages messages;
+        try {
+            settings = Settings.load(ConfigFile.load(this, "config.yml", MOVED), getLogger());
+            messages = new Messages(ConfigFile.load(this, "messages.yml"));
+        } catch (ConfigFile.BrokenFileException e) {
+            getLogger().severe(e.getMessage());
+            getLogger().severe("dkBank is disabled so it can't use wrong settings (e.g. the wrong database). "
+                    + "Fix " + e.file() + " (https://yamlchecker.com helps) and restart. The file wasn't changed.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
         BankStore store;
         try {
@@ -115,6 +126,16 @@ public final class DkBankPlugin extends JavaPlugin {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(command.build(), "dkBank: your bank account", settings.aliases()));
 
+        try {
+            dev.direk.dkbank.hook.Metrics.start(this);
+        } catch (RuntimeException | LinkageError e) {
+            getLogger().log(Level.FINE, "bStats didn't start", e);
+        }
+        if (settings.updateChecker()) {
+            updates.check(newer -> getLogger().info("dkBank " + newer + " is out (you have " + version()
+                    + "). Download it where you bought dkBank."));
+        }
+
         getServer().getServicesManager().register(DkBankAPI.class, new BankApiImpl(version(), bank, leaderboard), this,
                 ServicePriority.Normal);
     }
@@ -130,9 +151,19 @@ public final class DkBankPlugin extends JavaPlugin {
     }
 
     /** Reloads config.yml and messages.yml. Storage and command alias changes need a restart. */
-    public void reloadFiles() {
-        Settings settings = Settings.load(ConfigFile.load(this, "config.yml", MOVED), getLogger());
-        Messages messages = new Messages(ConfigFile.load(this, "messages.yml"));
+    /**
+     * @return null if everything reloaded, or the name of a file with a mistake (nothing was changed then)
+     */
+    public @Nullable String reloadFiles() {
+        Settings settings;
+        Messages messages;
+        try {
+            settings = Settings.load(ConfigFile.load(this, "config.yml", MOVED), getLogger());
+            messages = new Messages(ConfigFile.load(this, "messages.yml"));
+        } catch (ConfigFile.BrokenFileException e) {
+            getLogger().severe(e.getMessage() + " Kept the previous settings.");
+            return e.file();
+        }
         Tiers tiers = loadTiers(settings);
         if (tiers == null) {
             getLogger().severe("Kept the previous tiers until tiers.yml is fixed.");
@@ -141,6 +172,16 @@ public final class DkBankPlugin extends JavaPlugin {
         bank().reload(settings, messages, tiers);
         menus().load();
         leaderboard().start(); // the refresh time may have changed
+        // The alt limit may have been turned on or changed: decide again for everyone online.
+        for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
+            java.util.UUID uuid = player.getUniqueId();
+            bank().query("check alt accounts", () -> {
+                bank().alts().recheck(uuid);
+                return true;
+            }, done -> {
+            });
+        }
+        return null;
     }
 
     /** Reads tiers.yml and registers each tier's permission. Null if the file has a mistake. */
@@ -177,6 +218,32 @@ public final class DkBankPlugin extends JavaPlugin {
     public BankService bank() {
         if (bank == null) throw new IllegalStateException("dkBank isn't enabled");
         return bank;
+    }
+
+    /** /bank admin info: everything support needs to know about this server's setup. */
+    public void sendInfo(org.bukkit.command.CommandSender sender) {
+        BankService b = bank();
+        Leaderboard.Snapshot top = leaderboard().snapshot();
+        String newer = updates.newerVersion();
+        java.util.Map<String, String> v = new java.util.HashMap<>();
+        v.put("version", version());
+        v.put("server", getServer().getName() + " " + getServer().getMinecraftVersion());
+        v.put("java", String.valueOf(Runtime.version().feature()));
+        v.put("storage", b.settings().storage().type().name().toLowerCase(java.util.Locale.ROOT));
+        v.put("economy", b.wallet().providerName());
+        v.put("papi", String.valueOf(getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")));
+        v.put("accounts", String.valueOf(top.totals().accounts()));
+        v.put("total", b.fmt(top.totals().balance()));
+        v.put("loaded", String.valueOf(getServer().getOnlinePlayers().size()));
+        v.put("tiers", String.valueOf(b.tiers().all().size()));
+        v.put("alts", b.settings().alts().enabled() ? "max " + b.settings().alts().maxPerAddress() : "off");
+        v.put("menus", String.valueOf(b.settings().menus().openFromCommands()));
+        v.put("latest", newer == null ? "you're up to date (or not checked)" : newer);
+        b.messages().send(sender, "admin.info", v);
+    }
+
+    public dev.direk.dkbank.util.UpdateChecker updates() {
+        return updates;
     }
 
     public ReportService reports() {
