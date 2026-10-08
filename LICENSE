@@ -1,0 +1,101 @@
+dkBank - Proprietary Software License Agreement
+Copyright (c) 2026 Direk. All rights reserved.
+
+This license applies to dkBank, including its compiled plugin files (.jar), source code, configuration
+files, language files, graphics and documentation (together, the "Software"). It does not apply to the
+dkBank Developer API, which has its own license (see "Developer API" below).
+
+By downloading, installing or using the Software, you agree to this license. If you do not agree, do not
+download, install or use the Software.
+
+
+1. LICENSE GRANT
+
+When you obtain the Software through an official sales page, Direk ("the Author") grants you a personal,
+non-exclusive, non-transferable, revocable license to install and use the Software on Minecraft servers
+that you own or operate, including all servers in a single network you own or operate.
+
+You may change the Software's configuration and language files for your own servers.
+
+
+2. RESTRICTIONS
+
+Unless the Author gives you written permission, you may NOT:
+
+  a) share, upload, sell, resell, rent, lend, give away or otherwise distribute the Software or any part
+     of it, whether changed or unchanged, free or paid;
+  b) let anyone use the Software on servers you do not own or operate;
+  c) decompile, disassemble, reverse engineer, or otherwise try to obtain the source code of the
+     Software, except where applicable law expressly allows it despite this restriction;
+  d) modify the Software, or create forks or derivative works based on it, other than editing its
+     configuration and language files;
+  e) remove, hide or change any copyright, license or attribution notices in the Software;
+  f) remove, disable or work around any license check or protection in the Software;
+  g) use the Software, or any part of it, to build a competing product.
+
+
+3. OFFICIAL SALES PAGES
+
+The Software is only distributed through the Author's official pages on marketplaces such as
+BuiltByBit, SpigotMC and Voxel.Shop, or directly by the Author. A copy obtained any other way is not
+licensed.
+
+
+4. UPDATES AND SUPPORT
+
+Updates and support are provided at the Author's discretion and may change or end at any time. This
+license does not entitle you to any particular update, feature or level of support.
+
+
+5. TERMINATION
+
+This license ends automatically if you break any of its terms, or if the purchase is reversed (for
+example through a chargeback or a refund). When it ends, you must stop using the Software and delete
+every copy you have. The Author may also refuse future sales, updates and support.
+
+
+6. OWNERSHIP
+
+The Software is licensed, not sold. The Author keeps all rights, title and interest in the Software,
+including all intellectual property rights. All rights not expressly granted in this license are
+reserved.
+
+
+7. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+You are responsible for backing up your server and its data.
+
+
+8. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT ALLOWED BY LAW, THE AUTHOR IS NOT LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, INCLUDING LOSS OF DATA, IN-GAME CURRENCY, REVENUE OR PROFIT, ARISING FROM OR IN CONNECTION
+WITH THE SOFTWARE OR ITS USE. IF THE AUTHOR IS FOUND LIABLE ANYWAY, THE TOTAL LIABILITY IS LIMITED TO
+THE AMOUNT YOU PAID FOR THE SOFTWARE.
+
+
+9. DEVELOPER API
+
+The dkBank Developer API (the separate "dkBank-API" files that other plugins compile against) is
+licensed under the MIT License, found in its own LICENSE file. You may use the Developer API to build
+plugins that work with dkBank and distribute those plugins under any license. The MIT License covers
+only the Developer API, not the rest of the Software.
+
+
+10. MARKETPLACE TERMS
+
+If you bought the Software on a marketplace, that marketplace's own terms (including its refund policy)
+also apply. If they conflict with this license, the marketplace's terms apply to the extent required.
+
+
+11. CHANGES TO THIS LICENSE
+
+The Author may update this license for future versions of the Software. The license included with a
+version applies to that version.
+
+
+12. CONTACT
+
+For permissions or questions about this license: direkjames@gmail.com
