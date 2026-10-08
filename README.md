@@ -59,7 +59,7 @@ the **Reload All Gradle Projects** button (circular arrows) at the top of the Gr
 The first run of each server stops to ask you to accept the Minecraft EULA: set `eula=true` in
 `run/<server>/eula.txt` and run the task again. Stop a server by typing `stop` in its console.
 
-## Commands (0.5.0)
+## Commands (0.6.0)
 
 With `menus.open-from-commands: true` (the default), `/bank`, `/bank deposit`, `/bank withdraw`,
 `/bank pay`, `/bank tiers` and `/bank history` open menus when typed on their own. The menus are in
@@ -115,4 +115,9 @@ All values come from memory, so scoreboards and tab lists can use them as often 
 | `%dkbank_rank%` | Place on the leaderboard (`-` if not on it) |
 | `%dkbank_top_name_<n>%`, `%dkbank_top_balance_<n>%`, `%dkbank_top_balance_short_<n>%` | Leaderboard place n |
 | `%dkbank_total%`, `%dkbank_total_short%`, `%dkbank_accounts%` | All banks together, number of accounts |
+
+## Developer API
+
+Other plugins can use dkBank through its MIT-licensed API: see [`api/README.md`](api/README.md), and
+the example addon in `example/`.
 

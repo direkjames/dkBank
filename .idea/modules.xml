@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/api/dkBank.api.main.iml" filepath="$PROJECT_DIR$/.idea/modules/api/dkBank.api.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/example/dkBank.example.main.iml" filepath="$PROJECT_DIR$/.idea/modules/example/dkBank.example.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/plugin/dkBank.plugin.main.iml" filepath="$PROJECT_DIR$/.idea/modules/plugin/dkBank.plugin.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/plugin/dkBank.plugin.test.iml" filepath="$PROJECT_DIR$/.idea/modules/plugin/dkBank.plugin.test.iml" />
     </modules>

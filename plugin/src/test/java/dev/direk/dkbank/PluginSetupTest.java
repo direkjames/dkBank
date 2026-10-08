@@ -42,7 +42,7 @@ class PluginSetupTest {
     void mainClassIsThePlugin() throws Exception {
         Class<?> main = Class.forName(pluginYml().getString("main"));
         assertTrue(JavaPlugin.class.isAssignableFrom(main), "main class must extend JavaPlugin");
-        assertTrue(DkBankAPI.class.isAssignableFrom(main), "main class must provide the API");
+        assertTrue(DkBankAPI.class.isAssignableFrom(dev.direk.dkbank.bank.BankApiImpl.class), "the API must be implemented");
     }
 
     @Test

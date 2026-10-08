@@ -116,13 +116,17 @@ double-pay or skip a payout, and offline accounts cost nothing.
 - ☑ Number formatting: `short-from` shows big amounts short everywhere, `short-decimals` (0-2)
 - ✗ Import from other bank plugins: decided against
 
-## Phase 6 · Developer API — `0.6.0`
+## Phase 6 · Developer API — `0.6.0` ☑
 
-- ☐ `DkBankAPI` service: read balances and tiers, deposit, withdraw, transfer, all returning futures
-- ☐ Events: `BankDepositEvent`, `BankWithdrawEvent`, `BankTransferEvent`, `BankInterestEvent`,
-  `BankTierChangeEvent` (cancellable before, informational after)
-- ☐ Javadocs, and a published `dkBank-API` artifact
-- ☐ Small example addon showing how to use the API
+- ☑ `DkBankAPI` service: accounts, cached balances, give, take, transfer, tiers (read, bought, set),
+  alt lock, leaderboard, formatting. Futures complete on the main thread
+- ☑ Events: `BankPreTransactionEvent` (deposit/withdraw/transfer, cancellable with a message),
+  `BankTransactionEvent` (every balance change: deposits, interest, staff, plugins...),
+  `BankUpgradeEvent` (cancellable), `BankTierChangeEvent`
+- ☑ Javadocs and sources jars for `dkBank-API`, plus `api/README.md` (publishing to a public Maven
+  repository is part of the release, Phase 8)
+- ☑ Example addon in `example/`: a reward command, reading balances and tiers, blocking deposits in
+  the nether, logging big transactions
 
 ## Phase 7 · Hardening (beta) — `0.9.0`
 

@@ -1,6 +1,10 @@
 package dev.direk.dkbank.bank;
 
+import dev.direk.dkbank.api.event.BankTierChangeEvent;
+import dev.direk.dkbank.api.event.BankUpgradeEvent;
 import dev.direk.dkbank.config.Messages;
+import dev.direk.dkbank.money.Money;
+import dev.direk.dkbank.storage.TransactionType;
 import dev.direk.dkbank.interest.InterestPlan;
 import dev.direk.dkbank.storage.StoreTypes.Account;
 import dev.direk.dkbank.storage.StoreTypes.Failure;
@@ -141,6 +145,13 @@ public final class TierService {
             done.finish(false);
             return;
         }
+        BankUpgradeEvent event = new BankUpgradeEvent(player, ApiTypes.tier(current), ApiTypes.tier(next));
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            if (event.getCancelMessage() != null) player.sendMessage(event.getCancelMessage());
+            done.finish(false);
+            return;
+        }
         UUID uuid = player.getUniqueId();
         String name = player.getName();
         bank.markBusy(uuid);
@@ -164,6 +175,8 @@ public final class TierService {
         if (result.ok()) {
             bank.cacheBalance(uuid, result.balance());
             bank.cacheBoughtTier(uuid, tier.id());
+            bank.changed(uuid, TransactionType.UPGRADE, result.amount(), Money.ZERO, result.balance(), null, null);
+            Bukkit.getPluginManager().callEvent(new BankTierChangeEvent(uuid, ApiTypes.tier(tier), BankTierChangeEvent.Cause.UPGRADE));
             Map<String, String> v = details(tier);
             v.put("balance", bank.fmt(result.balance()));
             v.put("player", player.getName());
@@ -223,6 +236,8 @@ public final class TierService {
                     }
                     bank.cacheBoughtTier(account.uuid(), stored);
                     offers.remove(account.uuid());
+                    Bukkit.getPluginManager().callEvent(new BankTierChangeEvent(account.uuid(), ApiTypes.tier(tier.get()),
+                            BankTierChangeEvent.Cause.ADMIN));
                     bank.messages().send(sender, "admin.tier-set", vars("player", account.name()),
                             Map.of("tier", tier.get().displayName()));
                     Player online = Bukkit.getPlayer(account.uuid());

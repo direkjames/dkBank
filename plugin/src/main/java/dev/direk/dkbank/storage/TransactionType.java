@@ -23,5 +23,9 @@ public enum TransactionType {
     /** Bank tier bought; the tier is stored as the other name (from version 0.3). */
     UPGRADE,
     /** Bank tier changed by an admin; amount is 0 (from version 0.3). */
-    TIER_SET
+    TIER_SET,
+    /** Added by another plugin through the API (from version 0.6). */
+    PLUGIN_GIVE,
+    /** Taken by another plugin through the API (from version 0.6). */
+    PLUGIN_TAKE
 }

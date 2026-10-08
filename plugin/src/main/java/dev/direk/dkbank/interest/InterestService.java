@@ -129,7 +129,7 @@ public final class InterestService implements Listener {
             InterestPlan plan = bank.alts().isLocked(uuid, bypass) ? noInterest(tier.plan()) : tier.plan();
             Payout payout = store.settleLogin(uuid, plan, tier.maxBalance());
             progress.put(uuid, new long[]{0, System.currentTimeMillis()});
-            if (payout.paid()) bank.cacheBalance(uuid, payout.balance());
+            if (payout.paid()) paid(uuid, payout, "offline");
             if (payout.paid() && bank.settings().interest().notifyOffline()) {
                 bank.runOnMain(() -> Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     Player online = Bukkit.getPlayer(uuid);
@@ -146,7 +146,7 @@ public final class InterestService implements Listener {
         Beat beat = beat(player, last, System.currentTimeMillis());
         submit("pay interest to " + player.getName() + " at logout", () -> {
             Payout payout = store.settleLogout(beat);
-            if (payout.paid()) bank.cacheBalance(beat.uuid(), payout.balance());
+            if (payout.paid()) paid(beat.uuid(), payout, "online");
         });
     }
 
@@ -161,7 +161,7 @@ public final class InterestService implements Listener {
                 Payout payout = store.beat(beat);
                 if (lastBeatContains(uuid)) progress.put(uuid, new long[]{payout.cycleMillis(), System.currentTimeMillis()});
                 if (!payout.paid()) return;
-                bank.cacheBalance(uuid, payout.balance());
+                paid(uuid, payout, "online");
                 if (bank.settings().interest().notifyOnline()) {
                     bank.runOnMain(() -> {
                         Player online = Bukkit.getPlayer(uuid);
@@ -190,6 +190,13 @@ public final class InterestService implements Listener {
                 "time", TimeText.format(Duration.ofMillis(payout.offlineMillis()))));
         Key sound = bank.settings().interest().sound();
         if (sound != null) player.playSound(Sound.sound(sound, Sound.Source.MASTER, 1f, 1f));
+    }
+
+    /** Remembers the new balance and tells other plugins (BankTransactionEvent). Interest thread. */
+    private void paid(UUID uuid, Payout payout, String source) {
+        bank.cacheBalance(uuid, payout.balance());
+        bank.runOnMain(() -> bank.changed(uuid, dev.direk.dkbank.storage.TransactionType.INTEREST, payout.amount(),
+                BigDecimal.ZERO, payout.balance(), null, source));
     }
 
     private boolean lastBeatContains(UUID uuid) {

@@ -7,7 +7,7 @@ rootProject.name = "dkBank"
 
 // api:    the public Developer API (MIT), published as dkBank-API
 // plugin: the plugin itself (proprietary), built as dkBank-<version>.jar
-include("api", "plugin")
+include("api", "plugin", "example")
 
 dependencyResolutionManagement {
     repositories {

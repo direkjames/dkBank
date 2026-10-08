@@ -1,5 +1,8 @@
 package dev.direk.dkbank.bank;
 
+import dev.direk.dkbank.api.event.BankPreTransactionEvent;
+import dev.direk.dkbank.api.event.BankTransactionEvent;
+import dev.direk.dkbank.api.event.TransactionKind;
 import dev.direk.dkbank.config.Messages;
 import dev.direk.dkbank.config.Settings;
 import dev.direk.dkbank.economy.Wallet;
@@ -234,7 +237,7 @@ public final class BankService {
     }
 
     /** The tier that limits an account: the online player's current tier, or else the bought tier. Any thread. */
-    private Tier tierOf(Account account) {
+    Tier tierOf(Account account) {
         Tiers t = tiers;
         String online = onlineTiers.get(account.uuid());
         if (online != null) {
@@ -310,6 +313,7 @@ public final class BankService {
             send(player, "bank-full", vars("room", fmt(max.subtract(cached).max(Money.ZERO)), "limit", fmt(max)));
             return false;
         }
+        if (!allowed(player, BankPreTransactionEvent.Action.DEPOSIT, amount, null)) return false;
         if (!wallet.take(player, amount)) {
             send(player, "wallet-error");
             return false;
@@ -326,6 +330,7 @@ public final class BankService {
             if (result.ok()) {
                 balances.put(uuid, result.balance());
                 send(player, "deposit-success", vars("amount", fmt(deposited), "balance", fmt(result.balance())));
+                changed(uuid, TransactionType.DEPOSIT, deposited, Money.ZERO, result.balance(), null, null);
                 done.finish(true);
             } else {
                 refundWallet(uuid, deposited);
@@ -362,6 +367,7 @@ public final class BankService {
         }
         Settings s = settings;
         if (!checkFixedAmount(player, input, s)) return false;
+        if (!allowed(player, BankPreTransactionEvent.Action.WITHDRAW, input.isShare() ? null : input.fixed(), null)) return false;
 
         UUID uuid = player.getUniqueId();
         String name = player.getName();
@@ -379,6 +385,7 @@ public final class BankService {
                 return;
             }
             balances.put(uuid, result.balance());
+            changed(uuid, TransactionType.WITHDRAW, result.amount(), result.fee(), result.balance(), null, null);
             BigDecimal received = result.amount().subtract(result.fee());
             boolean paid;
             try {
@@ -437,6 +444,9 @@ public final class BankService {
             send(player, "target-offline", vars("player", targetName));
             return false;
         }
+        if (!allowed(player, BankPreTransactionEvent.Action.TRANSFER, input.isShare() ? null : input.fixed(), targetName)) {
+            return false;
+        }
 
         UUID uuid = player.getUniqueId();
         String name = player.getName();
@@ -473,6 +483,8 @@ public final class BankService {
             }
             balances.put(uuid, r.balance());
             if (balances.containsKey(outcome.receiver())) balances.put(outcome.receiver(), t.receiverBalance());
+            changed(uuid, TransactionType.TRANSFER_OUT, r.amount(), r.fee(), r.balance(), outcome.receiver(), null);
+            changed(outcome.receiver(), TransactionType.TRANSFER_IN, r.amount(), Money.ZERO, t.receiverBalance(), uuid, null);
             send(player, r.fee().signum() > 0 ? "pay-sent-fee" : "pay-sent", vars("amount", fmt(r.amount()),
                     "fee", fmt(r.fee()), "player", t.receiverName(), "balance", fmt(r.balance())));
             Player receiver = Bukkit.getPlayer(outcome.receiver());
@@ -578,7 +590,7 @@ public final class BankService {
         String actor = sender.getName();
         async(() -> store.accountByName(targetName)
                         .map(a -> Map.entry(a, store.credit(a.uuid(), amount, TransactionType.ADMIN_GIVE, null, actor))),
-                result -> adminResult(sender, targetName, result, "admin.give", amount), error -> fail(sender, "give", error));
+                result -> adminResult(sender, targetName, result, "admin.give", amount, TransactionType.ADMIN_GIVE), error -> fail(sender, "give", error));
     }
 
     public void adminTake(CommandSender sender, String targetName, BigDecimal amount) {
@@ -586,17 +598,17 @@ public final class BankService {
         AmountInput input = new AmountInput(amount, null);
         async(() -> store.accountByName(targetName)
                         .map(a -> Map.entry(a, store.debit(a.uuid(), input, BigDecimal.ZERO, TransactionType.ADMIN_TAKE, actor))),
-                result -> adminResult(sender, targetName, result, "admin.take", amount), error -> fail(sender, "take", error));
+                result -> adminResult(sender, targetName, result, "admin.take", amount, TransactionType.ADMIN_TAKE), error -> fail(sender, "take", error));
     }
 
     public void adminSet(CommandSender sender, String targetName, BigDecimal amount) {
         String actor = sender.getName();
         async(() -> store.accountByName(targetName).map(a -> Map.entry(a, store.set(a.uuid(), amount, actor))),
-                result -> adminResult(sender, targetName, result, "admin.set", amount), error -> fail(sender, "set", error));
+                result -> adminResult(sender, targetName, result, "admin.set", amount, TransactionType.ADMIN_SET), error -> fail(sender, "set", error));
     }
 
     private void adminResult(CommandSender sender, String targetName, Optional<Map.Entry<Account, Result>> result,
-                             String key, BigDecimal amount) {
+                             String key, BigDecimal amount, TransactionType type) {
         if (result.isEmpty()) {
             send(sender, "unknown-player", vars("player", targetName));
             return;
@@ -612,6 +624,7 @@ public final class BankService {
             return;
         }
         if (balances.containsKey(account.uuid())) balances.put(account.uuid(), r.balance());
+        changed(account.uuid(), type, r.amount(), Money.ZERO, r.balance(), null, sender.getName());
         send(sender, key, vars("player", account.name(), "amount", fmt(amount), "balance", fmt(r.balance())));
     }
 
@@ -756,10 +769,36 @@ public final class BankService {
 
     private void refundBank(UUID uuid, BigDecimal amount) {
         async(() -> store.credit(uuid, amount, TransactionType.REFUND, null, "dkBank"), result -> {
-            if (result.ok()) balances.computeIfPresent(uuid, (k, v) -> result.balance());
-            else plugin.getLogger().severe("REFUND FAILED: couldn't return " + amount.toPlainString() + " to bank account " + uuid);
+            if (result.ok()) {
+                balances.computeIfPresent(uuid, (k, v) -> result.balance());
+                changed(uuid, TransactionType.REFUND, amount, Money.ZERO, result.balance(), null, "dkBank");
+            } else plugin.getLogger().severe("REFUND FAILED: couldn't return " + amount.toPlainString() + " to bank account " + uuid);
         }, error -> plugin.getLogger().log(Level.SEVERE, "REFUND FAILED: couldn't return " + amount.toPlainString()
                 + " to bank account " + uuid + ". Give it back manually.", error));
+    }
+
+    // ------------------------------------------------------------------ events
+
+    /** Fires {@link BankPreTransactionEvent}. @return false if a plugin cancelled it (they've been told) */
+    private boolean allowed(Player player, BankPreTransactionEvent.Action action, @Nullable BigDecimal amount,
+                            @Nullable String target) {
+        BankPreTransactionEvent event = new BankPreTransactionEvent(player, action, amount, target);
+        Bukkit.getPluginManager().callEvent(event);
+        if (!event.isCancelled()) return true;
+        if (event.getCancelMessage() != null) player.sendMessage(event.getCancelMessage());
+        return false;
+    }
+
+    /** Fires {@link BankTransactionEvent} for a change that's saved. Main thread. */
+    public void changed(UUID account, TransactionType type, BigDecimal amount, BigDecimal fee, BigDecimal balance,
+                        @Nullable UUID other, @Nullable String source) {
+        TransactionKind kind;
+        try {
+            kind = TransactionKind.valueOf(type.name());
+        } catch (IllegalArgumentException e) {
+            return; // e.g. TIER_SET: not a money change
+        }
+        Bukkit.getPluginManager().callEvent(new BankTransactionEvent(account, kind, amount, fee, balance, other, source));
     }
 
     void fail(CommandSender sender, String what, Throwable error) {

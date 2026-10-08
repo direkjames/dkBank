@@ -1,6 +1,7 @@
 package dev.direk.dkbank;
 
 import dev.direk.dkbank.api.DkBankAPI;
+import dev.direk.dkbank.bank.BankApiImpl;
 import dev.direk.dkbank.bank.BankService;
 import dev.direk.dkbank.bank.Leaderboard;
 import dev.direk.dkbank.bank.ReportService;
@@ -33,7 +34,7 @@ import java.util.logging.Level;
 /**
  * dkBank main class: loads the files, opens the database and wires everything together.
  */
-public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
+public final class DkBankPlugin extends JavaPlugin {
 
     private @Nullable Database database;
     private @Nullable BankService bank;
@@ -114,7 +115,8 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(command.build(), "dkBank: your bank account", settings.aliases()));
 
-        getServer().getServicesManager().register(DkBankAPI.class, this, this, ServicePriority.Normal);
+        getServer().getServicesManager().register(DkBankAPI.class, new BankApiImpl(version(), bank, leaderboard), this,
+                ServicePriority.Normal);
     }
 
     @Override
@@ -202,7 +204,7 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
         return interest;
     }
 
-    @Override
+    /** The running dkBank version, e.g. 1.0.0. */
     public String version() {
         return getPluginMeta().getVersion();
     }

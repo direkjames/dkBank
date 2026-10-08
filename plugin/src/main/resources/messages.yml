@@ -191,6 +191,9 @@ history:
     # <tier>
     upgrade: "<red>-<amount></red> <gray>upgraded to <tier>"
     tier-set: "<yellow>Tier</yellow> <gray>set to <tier> <gray>by <actor>"
+    # Changes made by other plugins. <actor> is the plugin's source text.
+    plugin-give: "<green>+<amount></green> <gray>from <actor>"
+    plugin-take: "<red>-<amount></red> <gray>by <actor>"
   # <page> <pages>. Previous and next are clickable.
   footer: "<dark_gray>Page <page>/<pages>"
   previous: "<gold>« Previous"

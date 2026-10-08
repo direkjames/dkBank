@@ -42,6 +42,8 @@ materials:
   interest: GOLD_NUGGET
   upgrade: NETHER_STAR
   tier-set: NAME_TAG
+  plugin-give: LIME_DYE
+  plugin-take: RED_DYE
   default: PAPER
 
 templates:
