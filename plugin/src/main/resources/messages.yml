@@ -77,7 +77,7 @@ interest:
   # /bank interest. Each line can be turned off with "".
   info:
     # <tier>
-    header: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>— interest ·</dark_gray> <tier>"
+    header: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <gray>— interest ·</gray> <tier>"
     # <rate> <period>
     online: " <gray>Online: <green><rate>%</green> per <white><period></white> played"
     online-off: " <gray>Online: <dark_gray>none"
@@ -96,30 +96,30 @@ interest:
 #  <online-period> <offline-period> <id>
 # ------------------------------------------------------------
 tiers:
-  header: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>— bank tiers"
+  header: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <gray>— bank tiers"
   # Your tier
-  current: " <gold>▶</gold> <tier> <dark_gray>· holds <white><max-balance></white> · interest on up to <white><cap></white> <gold>(yours)"
+  current: " <gold>▶</gold> <tier> <gray>· holds <white><max-balance></white> · interest on up to <white><cap></white> · <white><online-rate>%</white>/<white><offline-rate>%</white> <gold>(yours)"
   # Tiers below yours
-  below: " <dark_gray>✔ <tier> · holds <max-balance> · interest on up to <cap>"
+  below: " <gray>✔ <tier> <gray>· holds <max-balance> · interest on up to <cap> · <online-rate>%/<offline-rate>%"
   # The tier /bank upgrade buys
-  next: " <green>▲</green> <tier> <dark_gray>· holds <white><max-balance></white> · interest on up to <white><cap></white> · <green><cost>"
+  next: " <green>▲</green> <tier> <gray>· holds <white><max-balance></white> · interest on up to <white><cap></white> · <white><online-rate>%</white>/<white><offline-rate>%</white> · <green><cost>"
   # Buyable later
-  locked: " <gray>○</gray> <tier> <dark_gray>· holds <max-balance> · interest on up to <cap> · <cost>"
+  locked: " <gray>○ <tier> <gray>· holds <max-balance> · interest on up to <cap> · <online-rate>%/<offline-rate>% · <cost>"
   # Only through ranks (buyable: false)
-  rank-only: " <gray>○</gray> <tier> <dark_gray>· holds <max-balance> · interest on up to <cap> · rank perk"
-  footer: "<dark_gray>Type <gray>/bank upgrade</gray> to upgrade."
-  footer-max: "<dark_gray>You have the highest tier you can buy."
+  rank-only: " <gray>○ <tier> <gray>· holds <max-balance> · interest on up to <cap> · <online-rate>%/<offline-rate>% · rank perk"
+  footer: "<gray>Rates are online/offline. Type <white>/bank upgrade</white> to upgrade."
+  footer-max: "<gray>Rates are online/offline. You have the highest tier you can buy."
   no-limit: "no limit"
 
 upgrade:
   # Also: <current> (your tier now) <balance> <seconds>
   info:
-    - "<prefix><gray>Upgrade <current> <dark_gray>→</dark_gray> <tier> <gray>for <gold><cost></gold> <dark_gray>(paid from your bank, balance <balance>)"
+    - "<prefix><gray>Upgrade <current> <gray>→</gray> <tier> <gray>for <gold><cost></gold> <gray>(paid from your bank, balance <white><balance></white>)"
     - " <gray>Bank holds up to: <white><max-balance>"
     - " <gray>Interest on up to: <white><cap>"
     - " <gray>Interest: <green><online-rate>%</green> per <online-period> online, <green><offline-rate>%</green> per <offline-period> offline"
   # Clickable: runs /bank upgrade confirm
-  confirm-button: " <green><bold>[Click to confirm]</bold></green> <dark_gray>or type /bank upgrade confirm within <seconds>s"
+  confirm-button: " <green><bold>[Click to confirm]</bold></green> <gray>or type <white>/bank upgrade confirm</white> within <seconds>s"
   success: "<prefix><green>Your bank is now <tier><green>! <gray>Paid <white><cost></white>. Balance: <gold><balance>"
   # Sent to everyone else online. "" = off. Also: <player>
   broadcast: ""

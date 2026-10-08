@@ -59,7 +59,7 @@ the **Reload All Gradle Projects** button (circular arrows) at the top of the Gr
 The first run of each server stops to ask you to accept the Minecraft EULA: set `eula=true` in
 `run/<server>/eula.txt` and run the task again. Stop a server by typing `stop` in its console.
 
-## Commands (0.3.0)
+## Commands (0.3.1)
 
 | Command | Permission (default) |
 |---|---|

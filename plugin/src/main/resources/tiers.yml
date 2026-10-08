@@ -21,8 +21,8 @@
 #    buyable         false = only through the permission (it's skipped by /bank upgrade)
 #    max-balance     most money the bank can hold. 0 = no limit.
 #    interest:
-#      online-rate     percent per online period (config.yml → interest.online.period)
-#      offline-rate    percent per offline period (config.yml → interest.offline.period)
+#      online-rate     percent per online period (config.yml → interest.online.period). Decimals work: 0.5, 1.25
+#      offline-rate    percent per offline period (config.yml → interest.offline.period). Decimals work too
 #      cap             only the balance up to this earns interest. 0 = no cap (not recommended)
 #      max-per-payout  most interest in one payout. 0 = no limit.
 #

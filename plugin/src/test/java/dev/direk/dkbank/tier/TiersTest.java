@@ -145,6 +145,25 @@ class TiersTest {
     }
 
     @Test
+    void decimalRates() {
+        Map<String, Object> interest = new LinkedHashMap<>();
+        interest.put("online-rate", 0.5);    // YAML numbers arrive as doubles
+        interest.put("offline-rate", "1.50");
+        interest.put("cap", 10000);
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("interest", interest);
+        Tier tier = Tiers.parse(Map.of("half", values), TEMPLATE, log).first();
+        assertEquals("0.5", tier.plan().onlineRate().toPlainString());
+        assertEquals("1.5", tier.plan().offlineRate().toPlainString());
+        assertTrue(warnings.isEmpty(), "no warnings: " + warnings);
+
+        Map<String, Object> ten = new LinkedHashMap<>(interest);
+        ten.put("online-rate", 10);
+        values.put("interest", ten);
+        assertEquals("10", Tiers.parse(Map.of("ten", values), TEMPLATE, log).first().plan().onlineRate().toPlainString());
+    }
+
+    @Test
     void noTiersStillWorks() {
         Tiers tiers = Tiers.parse(Map.of(), TEMPLATE, log);
         assertEquals(1, tiers.all().size());

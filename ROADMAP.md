@@ -84,6 +84,7 @@ double-pay or skip a payout, and offline accounts cost nothing.
   wins. `buyable: false` tiers are rank-only
 - ☑ Confirmation before paying (clickable, 30 seconds), `/bank tiers`, `/bank admin tier`
 - ☑ Tier shown in `/bank`, `/bank interest` and the history
+- ☑ `0.3.1`: lighter (light gray) tier messages, rates shown in `/bank tiers`, decimal rates (0.5%, 1.25%) documented and tested
 
 ## Phase 4 · GUIs — `0.4.0`
 

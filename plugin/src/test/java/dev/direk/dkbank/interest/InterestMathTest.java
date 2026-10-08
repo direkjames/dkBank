@@ -42,6 +42,17 @@ class InterestMathTest {
     }
 
     @Test
+    void decimalRates() {
+        assertEquals($("50.00"), InterestMath.online($("10000"), $("0.5"), HOUR, HOUR));
+        assertEquals($("150.00"), InterestMath.online($("10000"), $("1.5"), HOUR, HOUR));
+        assertEquals($("12.50"), InterestMath.online($("10000"), $("0.125"), HOUR, HOUR));
+        // 2 days at 1.5% per day: 1.015^2 - 1 = 3.0225%
+        assertEquals($("302.25"), InterestMath.compounding($("10000"), $("1.5"), 2 * DAY, DAY));
+        // 2 days at 0.5% per day: 1.005^2 - 1 = 1.0025%
+        assertEquals($("100.25"), InterestMath.compounding($("10000"), $("0.5"), 2 * DAY, DAY));
+    }
+
+    @Test
     void resultsRoundDown() {
         assertEquals($("0.00"), InterestMath.online($("0.99"), ONE_PERCENT, HOUR, HOUR)); // 0.0099
         assertEquals($("0.09"), InterestMath.online($("9.99"), ONE_PERCENT, HOUR, HOUR)); // 0.0999
