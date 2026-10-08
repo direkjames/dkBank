@@ -2,6 +2,7 @@ package dev.direk.dkbank;
 
 import dev.direk.dkbank.api.DkBankAPI;
 import dev.direk.dkbank.bank.BankService;
+import dev.direk.dkbank.bank.TierService;
 import dev.direk.dkbank.command.BankCommand;
 import dev.direk.dkbank.config.ConfigFile;
 import dev.direk.dkbank.config.Messages;
@@ -11,11 +12,19 @@ import dev.direk.dkbank.interest.InterestService;
 import dev.direk.dkbank.listener.AccountListener;
 import dev.direk.dkbank.storage.BankStore;
 import dev.direk.dkbank.storage.Database;
+import dev.direk.dkbank.tier.Tier;
+import dev.direk.dkbank.tier.Tiers;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Map;
 import java.util.logging.Level;
 
 /**
@@ -26,13 +35,22 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
     private @Nullable Database database;
     private @Nullable BankService bank;
     private @Nullable InterestService interest;
+    private @Nullable TierService tierService;
+
+    /** Settings that moved out of config.yml, and where to. */
+    private static final Map<String, String> MOVED = Map.of(
+            "limits.max-balance", "max-balance of each tier in tiers.yml",
+            "interest.online.rate", "online-rate of each tier in tiers.yml",
+            "interest.offline.rate", "offline-rate of each tier in tiers.yml",
+            "interest.cap", "the interest cap of each tier in tiers.yml",
+            "interest.max-per-payout", "max-per-payout of each tier in tiers.yml");
 
     @Override
     public void onEnable() {
         String server = getServer().getName() + " " + getServer().getMinecraftVersion();
         getLogger().info("dkBank " + version() + " enabling on " + server + " (Java " + Runtime.version().feature() + ")");
 
-        Settings settings = Settings.load(ConfigFile.load(this, "config.yml"), getLogger());
+        Settings settings = Settings.load(ConfigFile.load(this, "config.yml", MOVED), getLogger());
         Messages messages = new Messages(ConfigFile.load(this, "messages.yml"));
 
         BankStore store;
@@ -51,7 +69,12 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
         }
         getLogger().info("Storage: " + settings.storage().type().name().toLowerCase());
 
-        bank = new BankService(this, store, new Wallet(), settings, messages, database.workerThreads());
+        Tiers tiers = loadTiers(settings);
+        if (tiers == null) tiers = Tiers.parse(Map.of(), settings.interest().template(), getLogger());
+        getLogger().info("Bank tiers: " + String.join(", ", tiers.all().stream().map(Tier::id).toList()));
+
+        bank = new BankService(this, store, new Wallet(), settings, messages, tiers, database.workerThreads());
+        tierService = new TierService(bank);
         bank.start();
         getServer().getPluginManager().registerEvents(new AccountListener(this), this);
 
@@ -77,9 +100,32 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
 
     /** Reloads config.yml and messages.yml. Storage and command alias changes need a restart. */
     public void reloadFiles() {
-        Settings settings = Settings.load(ConfigFile.load(this, "config.yml"), getLogger());
+        Settings settings = Settings.load(ConfigFile.load(this, "config.yml", MOVED), getLogger());
         Messages messages = new Messages(ConfigFile.load(this, "messages.yml"));
-        bank().reload(settings, messages);
+        Tiers tiers = loadTiers(settings);
+        if (tiers == null) {
+            getLogger().severe("Kept the previous tiers until tiers.yml is fixed.");
+            tiers = bank().tiers();
+        }
+        bank().reload(settings, messages, tiers);
+    }
+
+    /** Reads tiers.yml and registers each tier's permission. Null if the file has a mistake. */
+    private @Nullable Tiers loadTiers(Settings settings) {
+        YamlConfiguration file = ConfigFile.loadAsIs(this, "tiers.yml");
+        if (file == null) return null;
+        ConfigurationSection section = file.getConfigurationSection("tiers");
+        Tiers tiers = Tiers.parse(section == null ? Map.of() : ConfigFile.toMap(section),
+                settings.interest().template(), getLogger());
+        PluginManager pm = getServer().getPluginManager();
+        for (Tier tier : tiers.all()) {
+            // Registered as "default false": without this, unknown permissions count as given to ops,
+            // and every op would get the highest tier.
+            if (pm.getPermission(tier.permission()) == null) {
+                pm.addPermission(new Permission(tier.permission(), "dkBank tier " + tier.id(), PermissionDefault.FALSE));
+            }
+        }
+        return tiers;
     }
 
     /** Logs which economy dkBank found, or what's missing. */
@@ -98,6 +144,11 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
     public BankService bank() {
         if (bank == null) throw new IllegalStateException("dkBank isn't enabled");
         return bank;
+    }
+
+    public TierService tiers() {
+        if (tierService == null) throw new IllegalStateException("dkBank isn't enabled");
+        return tierService;
     }
 
     public InterestService interest() {

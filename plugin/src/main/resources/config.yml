@@ -34,8 +34,7 @@ limits:
   # Largest amount per deposit, withdrawal or transfer. 0 = no limit.
   # "all" and "half" are reduced to this instead of failing.
   max-per-transaction: 0
-  # Largest bank balance anyone can have. 0 = no limit. (Bank tiers can set their own later.)
-  max-balance: 0
+  # The largest bank balance is set per tier in tiers.yml (max-balance).
 
 # ------------------------------------------------------------
 #  Fees (percent, e.g. 2.5 = 2.5%). 0 = free.
@@ -60,26 +59,20 @@ transfers:
 #
 #  Interest is paid on the LOWEST balance since the last payout, so money moved in just before a
 #  payout doesn't earn anything until the payout after it. Withdrawing lowers what earns right away.
-#  (Bank tiers will give each tier its own rates and cap; these are the defaults for everyone.)
+#  Rates, the interest cap and the maximum per payout are set per tier in tiers.yml.
 # ------------------------------------------------------------
 interest:
   online:
     enabled: true
-    # Paid for every <period> of play: 1% for each hour online (prorated at logout).
-    rate: 1
+    # The tier's online-rate is paid for every <period> of play (prorated at logout).
     period: 1h
   offline:
     enabled: true
-    # Paid at login for the time away, compounding: 3 days at 1% per day = 3.03%.
+    # The tier's offline-rate per <period> away, paid at login, compounding: 3 days at 1% per day = 3.03%.
     # Time spent AFK while online also earns this rate instead of the online one.
-    rate: 1
     period: 1d
     # Time away that counts, at most. Stops accounts of players who quit from growing forever.
     max-time: 7d
-  # Only this much of a balance earns interest. 0 = no cap (not recommended: balances snowball).
-  cap: 100000
-  # Most interest in a single payout. 0 = no limit.
-  max-per-payout: 0
   notify:
     # Tell players when they're paid (messages.yml → interest)
     online-payout: true

@@ -7,6 +7,7 @@ import dev.direk.dkbank.storage.BankStore;
 import dev.direk.dkbank.storage.StoreTypes.Beat;
 import dev.direk.dkbank.storage.StoreTypes.InterestState;
 import dev.direk.dkbank.storage.StoreTypes.Payout;
+import dev.direk.dkbank.tier.Tier;
 import dev.direk.dkbank.util.TimeText;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
@@ -91,9 +92,9 @@ public final class InterestService implements Listener {
         }
     }
 
-    /** The interest plan for a player. Bank tiers will choose it per player. */
+    /** The interest plan for a player: their bank tier's. */
     public InterestPlan planFor(Player player) {
-        return bank.settings().interest().plan();
+        return bank.tierOf(player).plan();
     }
 
     // ------------------------------------------------------------------ events
@@ -103,7 +104,8 @@ public final class InterestService implements Listener {
         join(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    /** Before MONITOR: the account (and its tier) is unloaded at MONITOR. */
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onQuit(PlayerQuitEvent event) {
         quit(event.getPlayer());
     }
@@ -112,12 +114,14 @@ public final class InterestService implements Listener {
         UUID uuid = player.getUniqueId();
         if (lastBeat.containsKey(uuid)) return;
         lastBeat.put(uuid, System.currentTimeMillis());
-        InterestPlan plan = planFor(player);
-        BigDecimal max = bank.settings().maxBalanceOrNull();
         String name = player.getName();
+        // The bought tier is only known once the account is loaded; permission tiers are checked here.
+        Tier byPermission = bank.tiers().resolve(null, player::hasPermission);
         submit("pay offline interest to " + name, () -> {
             if (bank.cachedBalance(uuid) == null) bank.loadAccount(uuid, name); // e.g. after a reload
-            Payout payout = store.settleLogin(uuid, plan, max);
+            Tier bought = bank.tiers().bought(bank.boughtTier(uuid));
+            Tier tier = bought.isAbove(byPermission) ? bought : byPermission;
+            Payout payout = store.settleLogin(uuid, tier.plan(), tier.maxBalance());
             if (payout.paid()) bank.cacheBalance(uuid, payout.balance());
             if (payout.paid() && bank.settings().interest().notifyOffline()) {
                 bank.runOnMain(() -> Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -162,7 +166,8 @@ public final class InterestService implements Listener {
     private Beat beat(Player player, long last, long now) {
         long elapsed = Math.min(Math.max(0, now - last), MAX_BEAT_MILLIS);
         boolean active = !afk.isAfk(player, bank.settings().afk());
-        return new Beat(player.getUniqueId(), elapsed, active, planFor(player), bank.settings().maxBalanceOrNull());
+        Tier tier = bank.tierOf(player);
+        return new Beat(player.getUniqueId(), elapsed, active, tier.plan(), tier.maxBalance());
     }
 
     private void notify(Player player, String key, Payout payout) {
@@ -193,7 +198,7 @@ public final class InterestService implements Listener {
 
     private void sendInfo(Player player, InterestPlan plan, InterestState state, long unrecorded) {
         Messages m = bank.messages();
-        m.send(player, "interest.info.header");
+        m.send(player, "interest.info.header", Map.of(), Map.of("tier", bank.tierOf(player).displayName()));
         if (plan.onlineEnabled()) {
             m.send(player, "interest.info.online", Map.of("rate", plan.onlineRate().toPlainString(),
                     "period", TimeText.format(Duration.ofMillis(plan.onlinePeriodMillis()))));

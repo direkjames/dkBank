@@ -29,7 +29,6 @@ public record Settings(
         boolean useEconomyFormat,
         BigDecimal minAmount,
         BigDecimal maxPerTransaction,
-        BigDecimal maxBalance,
         BigDecimal withdrawFeePercent,
         BigDecimal transferFeePercent,
         boolean transfersEnabled,
@@ -42,11 +41,11 @@ public record Settings(
 ) {
 
     /**
-     * @param plan               the default interest plan (bank tiers will replace it per player)
-     * @param loginDelayTicks    delay before the "while you were away" message
-     * @param sound              payout sound, or null for none
+     * @param template        periods and on/off switches; each tier in tiers.yml adds its rates and limits
+     * @param loginDelayTicks delay before the "while you were away" message
+     * @param sound           payout sound, or null for none
      */
-    public record Interest(InterestPlan plan, boolean notifyOnline, boolean notifyOffline, long loginDelayTicks,
+    public record Interest(InterestPlan template, boolean notifyOnline, boolean notifyOffline, long loginDelayTicks,
                            @Nullable Key sound) {
     }
 
@@ -122,19 +121,16 @@ public record Settings(
                 Math.max(2, Math.min(20, c.getInt("storage.mysql.pool-size", 6))),
                 prefix);
 
-        InterestPlan plan = new InterestPlan(
+        // Rates, caps and limits are per tier (tiers.yml).
+        InterestPlan template = new InterestPlan(
                 c.getBoolean("interest.online.enabled", true),
-                check.rate(c, "interest.online.rate", "1"),
+                BigDecimal.ZERO,
                 check.duration(c, "interest.online.period", "1h", Duration.ofMinutes(1)),
                 c.getBoolean("interest.offline.enabled", true),
-                check.rate(c, "interest.offline.rate", "1"),
+                BigDecimal.ZERO,
                 check.duration(c, "interest.offline.period", "1d", Duration.ofMinutes(1)),
                 check.duration(c, "interest.offline.max-time", "7d", Duration.ZERO),
-                check.amount(c, "interest.cap", "100000", true),
-                check.amount(c, "interest.max-per-payout", "0", true));
-        if (plan.cap() == null && (plan.onlineEnabled() || plan.offlineEnabled())) {
-            log.warning("interest.cap is 0 (no cap). Big balances will snowball; a cap is strongly recommended.");
-        }
+                null, null);
         Key sound = null;
         String soundName = c.getString("interest.notify.sound", "");
         if (soundName != null && !soundName.isBlank()) {
@@ -142,7 +138,7 @@ public record Settings(
             if (Key.parseable(key)) sound = Key.key(key);
             else log.warning("interest.notify.sound '" + soundName + "' isn't a sound name. No sound will play.");
         }
-        Interest interest = new Interest(plan,
+        Interest interest = new Interest(template,
                 c.getBoolean("interest.notify.online-payout", true),
                 c.getBoolean("interest.notify.offline-payout", true),
                 Math.max(0, Math.min(60, c.getInt("interest.notify.login-delay", 3))) * 20L,
@@ -161,7 +157,6 @@ public record Settings(
                 cur != null && cur.getBoolean("use-economy-format", false),
                 check.amount(c, "limits.min-amount", "1", false),
                 check.amount(c, "limits.max-per-transaction", "0", true),
-                check.amount(c, "limits.max-balance", "0", true),
                 check.percent(c, "fees.withdraw-percent"),
                 check.percent(c, "fees.transfer-percent"),
                 c.getBoolean("transfers.enabled", true),
@@ -178,11 +173,6 @@ public record Settings(
         return maxPerTransaction.signum() > 0 && amount.compareTo(maxPerTransaction) > 0;
     }
 
-    /** @return the maximum balance, or null for none */
-    public @Nullable BigDecimal maxBalanceOrNull() {
-        return maxBalance.signum() > 0 ? maxBalance : null;
-    }
-
     private record Checker(Logger log) {
 
         BigDecimal amount(YamlConfiguration c, String path, String fallback, boolean zeroAllowed) {
@@ -194,19 +184,6 @@ public record Settings(
             } catch (NumberFormatException e) {
                 log.warning(path + " must be " + (zeroAllowed ? "0 or more" : "more than 0") + ", not '" + text + "'. Using " + fallback + ".");
                 return Money.floor(new BigDecimal(fallback));
-            }
-        }
-
-        /** An interest rate in percent, 0 to 100. */
-        BigDecimal rate(YamlConfiguration c, String path, String fallback) {
-            String text = String.valueOf(c.get(path, fallback));
-            try {
-                BigDecimal value = new BigDecimal(text.trim());
-                if (value.signum() < 0 || value.compareTo(BigDecimal.valueOf(100)) > 0) throw new NumberFormatException();
-                return value.stripTrailingZeros();
-            } catch (NumberFormatException e) {
-                log.warning(path + " must be a percentage from 0 to 100, not '" + text + "'. Using " + fallback + ".");
-                return new BigDecimal(fallback);
             }
         }
 

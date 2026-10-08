@@ -10,6 +10,7 @@ import dev.direk.dkbank.storage.StoreTypes.Beat;
 import dev.direk.dkbank.storage.StoreTypes.Failure;
 import dev.direk.dkbank.storage.StoreTypes.InterestState;
 import dev.direk.dkbank.storage.StoreTypes.Payout;
+import dev.direk.dkbank.storage.StoreTypes.ReceiverLimit;
 import dev.direk.dkbank.storage.StoreTypes.Limits;
 import dev.direk.dkbank.storage.StoreTypes.Page;
 import dev.direk.dkbank.storage.StoreTypes.Result;
@@ -26,6 +27,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.LongSupplier;
@@ -43,7 +45,7 @@ import java.util.function.LongSupplier;
 public final class BankStore {
 
     /** Version of the table layout, stored in the meta table, for future migrations. */
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
 
     private final DataSource dataSource;
     private final SqlDialect dialect;
@@ -124,6 +126,8 @@ public final class BankStore {
                     "ALTER TABLE " + p + "accounts ADD COLUMN cycle_afk_ms BIGINT NOT NULL DEFAULT 0",
                     "ALTER TABLE " + p + "accounts ADD COLUMN interest_base BIGINT NOT NULL DEFAULT 0",
                     "UPDATE " + p + "accounts SET interest_base = balance");
+            // 0.3.0: bank tiers. tier: the bought tier's id, null for the first tier.
+            case 3 -> List.of("ALTER TABLE " + p + "accounts ADD COLUMN tier VARCHAR(16) NULL");
             default -> throw new IllegalStateException("No upgrade to table version " + version);
         };
     }
@@ -172,7 +176,7 @@ public final class BankStore {
     /** Looks up an account by player name, ignoring case. The most recently active one wins. */
     public Optional<Account> accountByName(String name) {
         return transaction("find " + name + "'s account", c -> {
-            try (PreparedStatement ps = c.prepareStatement("SELECT uuid, name, balance FROM " + p + "accounts WHERE "
+            try (PreparedStatement ps = c.prepareStatement("SELECT uuid, name, balance, tier FROM " + p + "accounts WHERE "
                     + dialect.nameEquals() + " ORDER BY updated_at DESC LIMIT 1")) {
                 ps.setString(1, name);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -266,6 +270,13 @@ public final class BankStore {
     /** Like {@link #transfer(UUID, UUID, AmountInput, BigDecimal, BigDecimal)}, with amount limits. */
     public TransferResult transfer(UUID from, UUID to, AmountInput input, BigDecimal feePercent,
                                    @Nullable BigDecimal receiverMax, Limits limits) {
+        return transfer(from, to, input, feePercent, receiver -> receiverMax, limits);
+    }
+
+    /** Like {@link #transfer(UUID, UUID, AmountInput, BigDecimal, BigDecimal, Limits)}, with the receiver's
+     * maximum balance worked out from their account (e.g. from their tier). */
+    public TransferResult transfer(UUID from, UUID to, AmountInput input, BigDecimal feePercent,
+                                   ReceiverLimit receiverLimit, Limits limits) {
         return transaction("transfer money", c -> {
             // Lock both rows in a fixed order so two opposite transfers can't deadlock.
             lockBoth(c, from, to);
@@ -295,7 +306,7 @@ public final class BankStore {
                 return new TransferResult(Result.fail(Failure.BELOW_MINIMUM, balance), receiver.get().balance(), receiverName);
             }
             BigDecimal receiverAfter = receiver.get().balance().add(amount);
-            if (receiverAfter.compareTo(limit(receiverMax)) > 0) {
+            if (receiverAfter.compareTo(limit(receiverLimit.maxBalance(receiver.get()))) > 0) {
                 return new TransferResult(Result.fail(Failure.BALANCE_LIMIT, balance), receiver.get().balance(), receiverName);
             }
 
@@ -306,6 +317,51 @@ public final class BankStore {
             log(c, to, TransactionType.TRANSFER_IN, amount, Money.ZERO, receiverAfter, from, sender.get().name(), null);
             return new TransferResult(Result.ok(amount, fee, senderAfter), receiverAfter, receiverName);
         });
+    }
+
+    // ------------------------------------------------------------------ tiers
+
+    /**
+     * Buys a tier: takes the cost from the bank and stores the new tier, in one transaction.
+     *
+     * @param expectedTier the bought tier the offer was based on (null for the first tier); if it changed in
+     *                     the meantime, nothing happens and {@link Failure#TIER_CHANGED} is returned
+     */
+    public Result upgrade(UUID uuid, @Nullable String expectedTier, String newTier, BigDecimal cost) {
+        return transaction("upgrade a bank tier", c -> {
+            Optional<Account> account = readAccount(c, uuid, true);
+            if (account.isEmpty()) return Result.fail(Failure.NO_ACCOUNT, Money.ZERO);
+            BigDecimal balance = account.get().balance();
+            if (!Objects.equals(account.get().tier(), expectedTier)) return Result.fail(Failure.TIER_CHANGED, balance);
+            if (cost.compareTo(balance) > 0) return Result.fail(Failure.INSUFFICIENT_FUNDS, balance);
+
+            BigDecimal after = balance.subtract(cost);
+            writeBalance(c, uuid, after, true);
+            writeTier(c, uuid, newTier);
+            log(c, uuid, TransactionType.UPGRADE, cost, Money.ZERO, after, null, newTier, null);
+            return Result.ok(cost, Money.ZERO, after);
+        });
+    }
+
+    /** Sets an account's bought tier (admin). Null puts it back on the first tier. */
+    public Result setTier(UUID uuid, @Nullable String tier, @Nullable String actor) {
+        return transaction("set a bank tier", c -> {
+            Optional<Account> account = readAccount(c, uuid, true);
+            if (account.isEmpty()) return Result.fail(Failure.NO_ACCOUNT, Money.ZERO);
+            BigDecimal balance = account.get().balance();
+            writeTier(c, uuid, tier);
+            log(c, uuid, TransactionType.TIER_SET, Money.ZERO, Money.ZERO, balance, null, tier, actor);
+            return Result.ok(Money.ZERO, Money.ZERO, balance);
+        });
+    }
+
+    private void writeTier(Connection c, UUID uuid, @Nullable String tier) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement("UPDATE " + p + "accounts SET tier = ?, updated_at = ? WHERE uuid = ?")) {
+            if (tier == null) ps.setNull(1, Types.VARCHAR); else ps.setString(1, tier);
+            ps.setLong(2, clock.getAsLong());
+            ps.setString(3, uuid.toString());
+            ps.executeUpdate();
+        }
     }
 
     // ------------------------------------------------------------------ interest
@@ -480,7 +536,7 @@ public final class BankStore {
     }
 
     private Optional<Account> readAccount(Connection c, UUID uuid, boolean lock) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement("SELECT uuid, name, balance FROM " + p + "accounts WHERE uuid = ?"
+        try (PreparedStatement ps = c.prepareStatement("SELECT uuid, name, balance, tier FROM " + p + "accounts WHERE uuid = ?"
                 + (lock ? dialect.forUpdate() : ""))) {
             ps.setString(1, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
@@ -504,7 +560,8 @@ public final class BankStore {
     }
 
     private static Account account(ResultSet rs) throws SQLException {
-        return new Account(UUID.fromString(rs.getString("uuid")), rs.getString("name"), Money.fromCents(rs.getLong("balance")));
+        return new Account(UUID.fromString(rs.getString("uuid")), rs.getString("name"), Money.fromCents(rs.getLong("balance")),
+                rs.getString("tier"));
     }
 
     /**

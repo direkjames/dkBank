@@ -134,8 +134,8 @@ class BankStoreTest {
         StoreTypes.Limits limits = new StoreTypes.Limits($("5"), $("300"));
         assertEquals($("300.00"), store.debit(ALICE, AmountInput.ALL, NO_FEE, TransactionType.WITHDRAW, null, limits).amount());
         assertEquals(Failure.BELOW_MINIMUM, store.debit(ALICE, AmountInput.parse("4.99"), NO_FEE, TransactionType.WITHDRAW, null, limits).failure());
-        assertEquals($("300.00"), store.transfer(ALICE, BOB, AmountInput.ALL, NO_FEE, null, limits).sender().amount());
-        assertEquals(Failure.BELOW_MINIMUM, store.transfer(ALICE, BOB, AmountInput.parse("1"), NO_FEE, null, limits).sender().failure());
+        assertEquals($("300.00"), store.transfer(ALICE, BOB, AmountInput.ALL, NO_FEE, (BigDecimal) null, limits).sender().amount());
+        assertEquals(Failure.BELOW_MINIMUM, store.transfer(ALICE, BOB, AmountInput.parse("1"), NO_FEE, (BigDecimal) null, limits).sender().failure());
         assertEquals($("400.00"), balance(store, ALICE));
     }
 

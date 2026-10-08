@@ -37,20 +37,34 @@ public final class Messages {
     }
 
     public Component renderText(String text, Map<String, String> vars) {
+        return renderText(text, vars, Map.of());
+    }
+
+    /**
+     * @param formatted values that are MiniMessage themselves, from the server's own files (e.g. tier
+     *                  names). Never put player input here.
+     */
+    public Component renderText(String text, Map<String, String> vars, Map<String, String> formatted) {
         TagResolver.Builder resolvers = TagResolver.builder().resolver(prefix);
         vars.forEach((name, value) -> resolvers.resolver(Placeholder.unparsed(name, value)));
+        formatted.forEach((name, value) -> resolvers.resolver(Placeholder.parsed(name, value)));
         return MM.deserialize(text, resolvers.build());
     }
 
     /** Sends {@code key} if it isn't empty. Lists in messages.yml are sent as several lines. */
     public void send(Audience to, String key, Map<String, String> vars) {
+        send(to, key, vars, Map.of());
+    }
+
+    /** Like {@link #send(Audience, String, Map)}, with some values that are MiniMessage themselves. */
+    public void send(Audience to, String key, Map<String, String> vars, Map<String, String> formatted) {
         if (file.isList(key)) {
             List<String> lines = file.getStringList(key);
-            for (String line : lines) to.sendMessage(renderText(line, vars));
+            for (String line : lines) to.sendMessage(renderText(line, vars, formatted));
             return;
         }
         String text = raw(key);
-        if (!text.isEmpty()) to.sendMessage(renderText(text, vars));
+        if (!text.isEmpty()) to.sendMessage(renderText(text, vars, formatted));
     }
 
     public void send(Audience to, String key) {

@@ -14,7 +14,8 @@ public final class StoreTypes {
     private StoreTypes() {
     }
 
-    public record Account(UUID uuid, String name, BigDecimal balance) {
+    /** @param tier the bought tier's id, or null for the first tier */
+    public record Account(UUID uuid, String name, BigDecimal balance, @Nullable String tier) {
     }
 
     /** One line of an account's history. */
@@ -36,7 +37,15 @@ public final class StoreTypes {
         /** The amount works out to nothing (e.g. "half" of 0.01). */
         NOTHING_TO_MOVE,
         /** The amount (after resolving "all"/"half") is below the minimum. */
-        BELOW_MINIMUM
+        BELOW_MINIMUM,
+        /** The account's tier changed since the upgrade was offered (e.g. bought on another server). */
+        TIER_CHANGED
+    }
+
+    /** The maximum balance of a transfer's receiver, worked out from their account; null for no limit. */
+    @FunctionalInterface
+    public interface ReceiverLimit {
+        @Nullable BigDecimal maxBalance(Account receiver);
     }
 
     /**

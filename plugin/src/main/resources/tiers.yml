@@ -1,0 +1,98 @@
+# ============================================================
+#  dkBank tiers
+#  Run /bank admin reload after editing.
+#
+#  Tiers go from lowest to highest. The FIRST tier is everyone's starting tier (its cost is ignored).
+#  Players buy the next tier with /bank upgrade, paid from their bank balance, so upgrades take money
+#  out of the economy.
+#
+#  A player's tier is the highest of:
+#    - the tier they bought
+#    - any tier they have the permission dkbank.tier.<name> for (e.g. dkbank.tier.gold), for ranks
+#      and donor perks. Permission tiers aren't kept if the permission is removed; bought tiers are.
+#
+#  The name of each section (basic, silver, ...) is stored in the database. Renaming one moves its
+#  players back to the first tier, so change display-name instead.
+#
+#  Per tier:
+#    display-name    shown to players (MiniMessage)
+#    icon            item shown in menus (https://jd.papermc.io/paper/1.21.4/org/bukkit/Material.html)
+#    upgrade-cost    price of upgrading to this tier
+#    buyable         false = only through the permission (it's skipped by /bank upgrade)
+#    max-balance     most money the bank can hold. 0 = no limit.
+#    interest:
+#      online-rate     percent per online period (config.yml → interest.online.period)
+#      offline-rate    percent per offline period (config.yml → interest.offline.period)
+#      cap             only the balance up to this earns interest. 0 = no cap (not recommended)
+#      max-per-payout  most interest in one payout. 0 = no limit.
+#
+#  Interest periods, AFK detection and payout messages are in config.yml.
+# ============================================================
+
+tiers:
+  basic:
+    display-name: "<gray>Basic</gray>"
+    icon: PAPER
+    upgrade-cost: 0
+    max-balance: 250000
+    interest:
+      online-rate: 1
+      offline-rate: 1
+      cap: 25000
+      max-per-payout: 0
+
+  silver:
+    display-name: "<white>Silver</white>"
+    icon: IRON_INGOT
+    upgrade-cost: 25000
+    max-balance: 1000000
+    interest:
+      online-rate: 1
+      offline-rate: 1
+      cap: 100000
+      max-per-payout: 0
+
+  gold:
+    display-name: "<gold>Gold</gold>"
+    icon: GOLD_INGOT
+    upgrade-cost: 150000
+    max-balance: 5000000
+    interest:
+      online-rate: 1
+      offline-rate: 1
+      cap: 500000
+      max-per-payout: 0
+
+  platinum:
+    display-name: "<aqua>Platinum</aqua>"
+    icon: DIAMOND
+    upgrade-cost: 1000000
+    max-balance: 25000000
+    interest:
+      online-rate: 1
+      offline-rate: 1
+      cap: 2500000
+      max-per-payout: 0
+
+  diamond:
+    display-name: "<gradient:#7DF9FF:#3A8DFF>Diamond</gradient>"
+    icon: NETHER_STAR
+    upgrade-cost: 5000000
+    max-balance: 100000000
+    interest:
+      online-rate: 1
+      offline-rate: 1
+      cap: 10000000
+      max-per-payout: 0
+
+  # Example of a tier that can't be bought: give it to a rank with the permission dkbank.tier.black
+  black:
+    display-name: "<gradient:#3A3A3A:#B8B8B8><bold>Black</bold></gradient>"
+    icon: NETHERITE_INGOT
+    buyable: false
+    max-balance: 0
+    interest:
+      online-rate: 1
+      offline-rate: 1
+      cap: 25000000
+      max-per-payout: 0

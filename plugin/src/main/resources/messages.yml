@@ -10,10 +10,10 @@ prefix: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>»<
 # ------------------------------------------------------------
 #  Balance
 # ------------------------------------------------------------
-# <balance> <wallet>
+# <balance> <wallet> <tier>
 balance:
   - "<prefix><gray>Bank balance: <gradient:#F5C542:#D4A017><bold><balance></bold></gradient>"
-  - "<prefix><gray>Wallet: <white><wallet>"
+  - "<prefix><gray>Wallet: <white><wallet></white> <dark_gray>·</dark_gray> Tier: <tier>"
 hint: "<prefix><dark_gray>Type <gray>/bank help</gray> for everything you can do."
 # <player> <balance>
 balance-other: "<prefix><white><player></white><gray>'s bank balance: <gold><balance>"
@@ -76,7 +76,8 @@ interest:
     - "<prefix><gray>Bank balance: <gold><balance>"
   # /bank interest. Each line can be turned off with "".
   info:
-    header: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>— interest"
+    # <tier>
+    header: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>— interest ·</dark_gray> <tier>"
     # <rate> <period>
     online: " <gray>Online: <green><rate>%</green> per <white><period></white> played"
     online-off: " <gray>Online: <dark_gray>none"
@@ -88,6 +89,45 @@ interest:
     no-cap: "no limit"
     # <time> (until the next online payout) <done> <period>
     next: " <gray>Next payout in <white><time></white> <dark_gray>of play"
+
+# ------------------------------------------------------------
+#  Tiers
+#  Values for every tier line: <tier> <cost> <max-balance> <cap> <online-rate> <offline-rate>
+#  <online-period> <offline-period> <id>
+# ------------------------------------------------------------
+tiers:
+  header: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>— bank tiers"
+  # Your tier
+  current: " <gold>▶</gold> <tier> <dark_gray>· holds <white><max-balance></white> · interest on up to <white><cap></white> <gold>(yours)"
+  # Tiers below yours
+  below: " <dark_gray>✔ <tier> · holds <max-balance> · interest on up to <cap>"
+  # The tier /bank upgrade buys
+  next: " <green>▲</green> <tier> <dark_gray>· holds <white><max-balance></white> · interest on up to <white><cap></white> · <green><cost>"
+  # Buyable later
+  locked: " <gray>○</gray> <tier> <dark_gray>· holds <max-balance> · interest on up to <cap> · <cost>"
+  # Only through ranks (buyable: false)
+  rank-only: " <gray>○</gray> <tier> <dark_gray>· holds <max-balance> · interest on up to <cap> · rank perk"
+  footer: "<dark_gray>Type <gray>/bank upgrade</gray> to upgrade."
+  footer-max: "<dark_gray>You have the highest tier you can buy."
+  no-limit: "no limit"
+
+upgrade:
+  # Also: <current> (your tier now) <balance> <seconds>
+  info:
+    - "<prefix><gray>Upgrade <current> <dark_gray>→</dark_gray> <tier> <gray>for <gold><cost></gold> <dark_gray>(paid from your bank, balance <balance>)"
+    - " <gray>Bank holds up to: <white><max-balance>"
+    - " <gray>Interest on up to: <white><cap>"
+    - " <gray>Interest: <green><online-rate>%</green> per <online-period> online, <green><offline-rate>%</green> per <offline-period> offline"
+  # Clickable: runs /bank upgrade confirm
+  confirm-button: " <green><bold>[Click to confirm]</bold></green> <dark_gray>or type /bank upgrade confirm within <seconds>s"
+  success: "<prefix><green>Your bank is now <tier><green>! <gray>Paid <white><cost></white>. Balance: <gold><balance>"
+  # Sent to everyone else online. "" = off. Also: <player>
+  broadcast: ""
+  # <cost> <balance>
+  not-enough: "<prefix><red>You need <cost> in the bank for <tier><red>. <gray>Balance: <white><balance>"
+  max: "<prefix><gray>Your bank is <tier><gray>, the highest tier you can buy."
+  expired: "<prefix><gray>That offer ran out. Here it is again:"
+  changed: "<prefix><gray>Your tier just changed. Type <white>/bank upgrade</white> to see your next one."
 
 # ------------------------------------------------------------
 #  History
@@ -110,6 +150,9 @@ history:
     refund: "<green>+<amount></green> <gray>refund"
     # <actor> is online or offline
     interest: "<green>+<amount></green> <gray><actor> interest"
+    # <tier>
+    upgrade: "<red>-<amount></red> <gray>upgraded to <tier>"
+    tier-set: "<yellow>Tier</yellow> <gray>set to <tier> <gray>by <actor>"
   # <page> <pages>. Previous and next are clickable.
   footer: "<dark_gray>Page <page>/<pages>"
   previous: "<gold>« Previous"
@@ -127,12 +170,15 @@ help:
     - " <gold>/bank pay <player> <amount></gold> <gray>send to another player's bank"
     - " <gold>/bank history [page]</gold> <gray>your transactions"
     - " <gold>/bank interest</gold> <gray>your interest rates and next payout"
+    - " <gold>/bank tiers</gold> <gray>bank tiers"
+    - " <gold>/bank upgrade</gold> <gray>buy the next tier"
     - " <dark_gray>Amounts: 1000, 1.5k, 2m, all, half"
   admin:
     - "<gradient:#F5C542:#D4A017><bold>dkBank admin</bold></gradient>"
     - " <gold>/bank admin give|take|set <player> <amount>"
     - " <gold>/bank admin balance <player>"
     - " <gold>/bank admin history <player> [page]"
+    - " <gold>/bank admin tier <player> <tier|default>"
     - " <gold>/bank admin reload"
 
 # ------------------------------------------------------------
@@ -147,5 +193,11 @@ admin:
   take-insufficient: "<prefix><red><player> only has <balance> in the bank."
   # <player>
   limit: "<prefix><red>That would put <player>'s bank over the maximum."
+  # <player> <tier>
+  tier-set: "<prefix><green>Set <white><player></white>'s bought tier to <tier><green>."
+  # Their permission gives a higher tier than the one just set. <player> <tier>
+  tier-permission: "<prefix><gray>Note: <white><player></white> has <tier> <gray>through a permission, which is higher."
+  # <input> <tiers>
+  unknown-tier: "<prefix><red>No tier called '<input>'. <gray>Tiers: <white><tiers>"
   no-shares: "<prefix><red>Use an exact amount for admin commands, not all or half."
   reloaded: "<prefix><green>config.yml and messages.yml reloaded. <gray>(Storage and command aliases need a restart.)"

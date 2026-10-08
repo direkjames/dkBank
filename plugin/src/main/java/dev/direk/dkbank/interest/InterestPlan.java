@@ -6,7 +6,8 @@ import org.jspecify.annotations.Nullable;
 import java.math.BigDecimal;
 
 /**
- * The interest a player earns. Comes from config.yml now; bank tiers will give each player their own.
+ * The interest a player earns. Periods and on/off switches come from config.yml; rates, cap and maximum
+ * payout come from the player's bank tier.
  *
  * @param onlineEnabled  pay interest for time spent online
  * @param onlineRate     percent per {@code onlinePeriodMillis} of active play, e.g. 1 for 1%
@@ -27,5 +28,12 @@ public record InterestPlan(boolean onlineEnabled, BigDecimal onlineRate, long on
         if (offlinePeriodMillis <= 0) throw new IllegalArgumentException("offline period must be positive");
         cap = cap == null || cap.signum() <= 0 ? null : Money.floor(cap);
         maxPerPayout = maxPerPayout == null || maxPerPayout.signum() <= 0 ? null : Money.floor(maxPerPayout);
+    }
+
+    /** This plan with a tier's rates and limits. */
+    public InterestPlan withTier(BigDecimal onlineRate, BigDecimal offlineRate, @Nullable BigDecimal cap,
+                                 @Nullable BigDecimal maxPerPayout) {
+        return new InterestPlan(onlineEnabled, onlineRate, onlinePeriodMillis, offlineEnabled, offlineRate,
+                offlinePeriodMillis, offlineMaxMillis, cap, maxPerPayout);
     }
 }

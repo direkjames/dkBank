@@ -31,6 +31,7 @@ public final class AccountListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         plugin.bank().unload(event.getPlayer().getUniqueId());
+        plugin.tiers().forget(event.getPlayer().getUniqueId());
     }
 
     /** Economy plugins can register after dkBank enables; look again when they do. */

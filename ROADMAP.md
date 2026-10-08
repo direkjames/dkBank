@@ -23,7 +23,7 @@ Status legend: ☐ planned · ◐ in progress · ☑ done
 | Packages | `dev.direk.dkbank` (plugin), `dev.direk.dkbank.api` (API) | |
 | Null safety | JSpecify `@NullMarked` | Paper's own standard; the JetBrains annotations aren't available to plugins on 1.21.4 |
 | Licenses | Proprietary (plugin), MIT (API) | Done |
-| Interest | Online 1%/hour played (simple), offline 1%/day (compounding), on the lowest balance, capped | Compounding offline matches daily payouts; the cap keeps growth linear |
+| Interest | Online 1%/hour played (simple), offline 1%/day (compounding), on the lowest balance, capped per tier | Compounding offline matches daily payouts; the cap keeps growth linear |
 
 ---
 
@@ -73,12 +73,17 @@ double-pay or skip a payout, and offline accounts cost nothing.
 - ☑ Unit tests, including a simulated year of interest proving the cap keeps growth linear
 - ☑ Default rates: online 1% per hour played, offline 1% per day, capped
 
-## Phase 3 · Bank tiers — `0.3.0`
+## Phase 3 · Bank tiers — `0.3.0` ☑
 
-- ☐ Tiers in `tiers.yml`: name, icon, upgrade cost, online and offline rate, interest cap, max balance
-- ☐ Upgrades bought with in-game money (takes money out of the economy)
-- ☐ Permission tiers (`dkbank.tier.<name>`) for ranks and donor perks; the higher tier wins
-- ☐ Confirmation before paying for an upgrade
+- ☑ Tiers in `tiers.yml`: name, icon, upgrade cost, online and offline rate, interest cap, max per payout,
+  max balance. Defaults: Basic, Silver, Gold, Platinum, Diamond (all 1%, capped per tier), plus Black as
+  a rank-only example
+- ☑ Upgrades bought with in-game money from the bank balance (takes money out of the economy), one
+  tier at a time, in one database transaction; buying twice at once only charges once
+- ☑ Permission tiers (`dkbank.tier.<name>`, not given to ops) for ranks and donor perks; the higher tier
+  wins. `buyable: false` tiers are rank-only
+- ☑ Confirmation before paying (clickable, 30 seconds), `/bank tiers`, `/bank admin tier`
+- ☑ Tier shown in `/bank`, `/bank interest` and the history
 
 ## Phase 4 · GUIs — `0.4.0`
 

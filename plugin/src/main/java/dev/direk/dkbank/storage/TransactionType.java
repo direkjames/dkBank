@@ -19,5 +19,9 @@ public enum TransactionType {
     /** Money put back after a step failed (e.g. the wallet refused a withdrawal). */
     REFUND,
     /** Interest paid (from version 0.2). */
-    INTEREST
+    INTEREST,
+    /** Bank tier bought; the tier is stored as the other name (from version 0.3). */
+    UPGRADE,
+    /** Bank tier changed by an admin; amount is 0 (from version 0.3). */
+    TIER_SET
 }

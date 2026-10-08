@@ -59,7 +59,7 @@ the **Reload All Gradle Projects** button (circular arrows) at the top of the Gr
 The first run of each server stops to ask you to accept the Minecraft EULA: set `eula=true` in
 `run/<server>/eula.txt` and run the task again. Stop a server by typing `stop` in its console.
 
-## Commands (0.2.0)
+## Commands (0.3.0)
 
 | Command | Permission (default) |
 |---|---|
@@ -69,9 +69,13 @@ The first run of each server stops to ask you to accept the Minecraft EULA: set 
 | `/bank pay <player> <amount>` | `dkbank.pay` (everyone) |
 | `/bank history [page]` | `dkbank.history` (everyone) |
 | `/bank interest` | `dkbank.interest` (everyone) |
+| `/bank tiers` | `dkbank.tiers` (everyone) |
+| `/bank upgrade [confirm]` | `dkbank.upgrade` (everyone) |
 | `/bank balance <player>` | `dkbank.balance.others` (op) |
 | `/bank admin give\|take\|set <player> <amount>` | `dkbank.admin.give` / `.take` / `.set` (op) |
 | `/bank admin history <player> [page]` | `dkbank.admin.history` (op) |
+| `/bank admin tier <player> <tier\|default>` | `dkbank.admin.tier` (op) |
+| *(a tier from a rank)* | `dkbank.tier.<name>`, e.g. `dkbank.tier.gold` (nobody, not even ops) |
 | `/bank admin reload` | `dkbank.admin.reload` (op) |
 
 Amounts: `1000`, `1,000`, `1.5k`, `2m`, `1b`, `all`, `half`. `dkbank.admin` gives every admin permission.

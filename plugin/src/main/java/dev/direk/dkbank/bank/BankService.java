@@ -14,6 +14,8 @@ import dev.direk.dkbank.storage.StoreTypes.Page;
 import dev.direk.dkbank.storage.StoreTypes.Result;
 import dev.direk.dkbank.storage.StoreTypes.TransferResult;
 import dev.direk.dkbank.storage.TransactionType;
+import dev.direk.dkbank.tier.Tier;
+import dev.direk.dkbank.tier.Tiers;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -64,19 +66,26 @@ public final class BankService {
     private final Wallet wallet;
     private volatile Settings settings;
     private volatile Messages messages;
+    private volatile Tiers tiers;
 
     private final ExecutorService workers;
     private final Queue<Runnable> mainQueue = new ConcurrentLinkedQueue<>();
     private final Set<UUID> busy = new HashSet<>(); // main thread only
     private final Map<UUID, BigDecimal> balances = new ConcurrentHashMap<>();
+    /** Bought tier of loaded accounts ("" = the first tier). */
+    private final Map<UUID, String> boughtTiers = new ConcurrentHashMap<>();
+    /** Current tier of online players, bought or from a permission. Refreshed on the main thread. */
+    private final Map<UUID, String> onlineTiers = new ConcurrentHashMap<>();
     private @Nullable BukkitTask drainTask;
 
-    public BankService(JavaPlugin plugin, BankStore store, Wallet wallet, Settings settings, Messages messages, int threads) {
+    public BankService(JavaPlugin plugin, BankStore store, Wallet wallet, Settings settings, Messages messages,
+                       Tiers tiers, int threads) {
         this.plugin = plugin;
         this.store = store;
         this.wallet = wallet;
         this.settings = settings;
         this.messages = messages;
+        this.tiers = tiers;
         AtomicInteger counter = new AtomicInteger();
         this.workers = Executors.newFixedThreadPool(threads, r -> {
             Thread t = new Thread(r, "dkBank-worker-" + counter.incrementAndGet());
@@ -103,9 +112,19 @@ public final class BankService {
         if (drainTask != null) drainTask.cancel();
     }
 
-    public void reload(Settings settings, Messages messages) {
+    public void reload(Settings settings, Messages messages, Tiers tiers) {
         this.settings = settings;
         this.messages = messages;
+        this.tiers = tiers;
+        for (Player player : Bukkit.getOnlinePlayers()) tierOf(player);
+    }
+
+    public Tiers tiers() {
+        return tiers;
+    }
+
+    public BankStore store() {
+        return store;
     }
 
     public Settings settings() {
@@ -125,7 +144,7 @@ public final class BankService {
     /** Called on the login thread: creates the account if needed and caches the balance. */
     public void loadAccount(UUID uuid, String name) {
         try {
-            balances.put(uuid, store.ensureAccount(uuid, name).balance());
+            remember(store.ensureAccount(uuid, name));
         } catch (BankStore.StorageException e) {
             plugin.getLogger().log(Level.SEVERE, "Couldn't load " + name + "'s bank account", e);
         }
@@ -133,6 +152,47 @@ public final class BankService {
 
     public void unload(UUID uuid) {
         balances.remove(uuid);
+        boughtTiers.remove(uuid);
+        onlineTiers.remove(uuid);
+    }
+
+    private void remember(Account account) {
+        balances.put(account.uuid(), account.balance());
+        boughtTiers.put(account.uuid(), account.tier() == null ? "" : account.tier());
+    }
+
+    // ------------------------------------------------------------------ tiers
+
+    /** A player's current tier: the bought one, or a higher one from a permission. Main thread. */
+    public Tier tierOf(Player player) {
+        Tier tier = tiers.resolve(boughtTiers.get(player.getUniqueId()), player::hasPermission);
+        onlineTiers.put(player.getUniqueId(), tier.id());
+        return tier;
+    }
+
+    /** @return the bought tier of a loaded account, or null for the first tier or if not loaded */
+    public @Nullable String boughtTier(UUID uuid) {
+        String tier = boughtTiers.get(uuid);
+        return tier == null || tier.isEmpty() ? null : tier;
+    }
+
+    /** Remembers a changed bought tier, and refreshes the player's current tier if they're online. */
+    public void cacheBoughtTier(UUID uuid, @Nullable String tier) {
+        if (!balances.containsKey(uuid)) return;
+        boughtTiers.put(uuid, tier == null ? "" : tier);
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null && Bukkit.isPrimaryThread()) tierOf(player);
+    }
+
+    /** The tier that limits an account: the online player's current tier, or else the bought tier. Any thread. */
+    private Tier tierOf(Account account) {
+        Tiers t = tiers;
+        String online = onlineTiers.get(account.uuid());
+        if (online != null) {
+            Optional<Tier> tier = t.byId(online);
+            if (tier.isPresent()) return tier.get();
+        }
+        return t.bought(account.tier());
     }
 
     /** Updates the cached balance of a loaded account (e.g. after interest). Any thread. */
@@ -159,7 +219,7 @@ public final class BankService {
 
         BigDecimal walletBalance = wallet.balance(player);
         BigDecimal amount = input.resolve(walletBalance);
-        BigDecimal max = s.maxBalanceOrNull();
+        BigDecimal max = tierOf(player).maxBalance();
         BigDecimal cached = balances.get(uuid);
         if (input.isShare()) {
             // "all" fills up to the limits instead of failing
@@ -277,7 +337,6 @@ public final class BankService {
         UUID uuid = player.getUniqueId();
         String name = player.getName();
         BigDecimal fee = s.transferFeePercent();
-        BigDecimal max = s.maxBalanceOrNull();
         Limits limits = limits(s);
         busy.add(uuid);
         async(() -> {
@@ -285,7 +344,8 @@ public final class BankService {
             Optional<Account> receiver = store.accountByName(targetName);
             if (receiver.isEmpty()) return new PayOutcome(PayStatus.UNKNOWN, null, null);
             if (receiver.get().uuid().equals(uuid)) return new PayOutcome(PayStatus.SELF, null, null);
-            return new PayOutcome(PayStatus.OK, store.transfer(uuid, receiver.get().uuid(), input, fee, max, limits),
+            return new PayOutcome(PayStatus.OK, store.transfer(uuid, receiver.get().uuid(), input, fee,
+                    account -> tierOf(account).maxBalance(), limits),
                     receiver.get().uuid());
         }, outcome -> {
             busy.remove(uuid);
@@ -329,7 +389,8 @@ public final class BankService {
             return store.account(uuid).map(Account::balance).orElse(Money.ZERO);
         }, balance -> {
             balances.put(uuid, balance);
-            send(player, "balance", vars("balance", fmt(balance), "wallet", fmt(wallet.balance(player))));
+            messages.send(player, "balance", vars("balance", fmt(balance), "wallet", fmt(wallet.balance(player))),
+                    Map.of("tier", tierOf(player).displayName()));
         }, error -> fail(player, "balance", error));
     }
 
@@ -381,7 +442,9 @@ public final class BankService {
                     "date", settings.dateFormat().format(Instant.ofEpochMilli(e.time())));
             String text = m.raw("history.types." + type);
             if (text.isEmpty()) text = type; // a type missing from messages.yml still shows something
-            to.sendMessage(m.renderText(m.raw("history.entry").replace("<line>", text), v));
+            Map<String, String> tier = Map.of("tier", e.otherName() == null ? tiers.first().displayName()
+                    : tiers.byId(e.otherName()).map(Tier::displayName).orElse(e.otherName()));
+            to.sendMessage(m.renderText(m.raw("history.entry").replace("<line>", text), v, tier));
         }
         if (page.pages() > 1) {
             Component footer = m.render("history.footer", vars("page", String.valueOf(page.page()),
@@ -483,15 +546,23 @@ public final class BankService {
         return false;
     }
 
-    private boolean isBusy(Player player) {
+    void markBusy(UUID uuid) {
+        busy.add(uuid);
+    }
+
+    void clearBusy(UUID uuid) {
+        busy.remove(uuid);
+    }
+
+    boolean isBusy(Player player) {
         if (!busy.contains(player.getUniqueId())) return false;
         send(player, "busy");
         return true;
     }
 
     /** Creates the acting player's account if the login step missed it (worker thread). */
-    private void ensure(UUID uuid, String name) {
-        if (!balances.containsKey(uuid)) balances.put(uuid, store.ensureAccount(uuid, name).balance());
+    void ensure(UUID uuid, String name) {
+        if (!balances.containsKey(uuid)) remember(store.ensureAccount(uuid, name));
     }
 
     private void refundWallet(UUID uuid, BigDecimal amount) {
@@ -510,13 +581,13 @@ public final class BankService {
                 + " to bank account " + uuid + ". Give it back manually.", error));
     }
 
-    private void fail(CommandSender sender, String what, Throwable error) {
+    void fail(CommandSender sender, String what, Throwable error) {
         plugin.getLogger().log(Level.SEVERE, "Bank " + what + " for " + sender.getName() + " failed", error);
         send(sender, "error");
     }
 
     /** Runs {@code work} on a worker thread, then {@code done} (or {@code failed}) on the main thread. */
-    private <T> void async(Supplier<T> work, Consumer<T> done, Consumer<Throwable> failed) {
+    <T> void async(Supplier<T> work, Consumer<T> done, Consumer<Throwable> failed) {
         try {
             workers.execute(() -> {
                 try {
@@ -542,15 +613,15 @@ public final class BankService {
         }
     }
 
-    private void send(CommandSender to, String key) {
+    void send(CommandSender to, String key) {
         messages.send(to, key, Map.of());
     }
 
-    private void send(CommandSender to, String key, Map<String, String> vars) {
+    void send(CommandSender to, String key, Map<String, String> vars) {
         messages.send(to, key, vars);
     }
 
-    private static Map<String, String> vars(String... pairs) {
+    static Map<String, String> vars(String... pairs) {
         Map<String, String> map = new HashMap<>();
         for (int i = 0; i + 1 < pairs.length; i += 2) map.put(pairs[i], pairs[i + 1]);
         return map;

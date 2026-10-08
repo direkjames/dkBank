@@ -11,6 +11,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.direk.dkbank.DkBankPlugin;
 import dev.direk.dkbank.bank.BankService;
 import dev.direk.dkbank.money.AmountInput;
+import dev.direk.dkbank.tier.Tier;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import org.bukkit.Bukkit;
@@ -71,6 +72,23 @@ public final class BankCommand {
                             if (player != null) plugin.interest().showInfo(player);
                             return Command.SINGLE_SUCCESS;
                         }))
+                .then(Commands.literal("tiers").requires(perm("dkbank.tiers"))
+                        .executes(ctx -> {
+                            Player player = player(ctx);
+                            if (player != null) plugin.tiers().showTiers(player);
+                            return Command.SINGLE_SUCCESS;
+                        }))
+                .then(Commands.literal("upgrade").requires(perm("dkbank.upgrade"))
+                        .executes(ctx -> {
+                            Player player = player(ctx);
+                            if (player != null) plugin.tiers().offer(player);
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(Commands.literal("confirm").executes(ctx -> {
+                            Player player = player(ctx);
+                            if (player != null) plugin.tiers().confirm(player);
+                            return Command.SINGLE_SUCCESS;
+                        })))
                 .then(admin());
         return root.build();
     }
@@ -82,6 +100,7 @@ public final class BankCommand {
                         || src.getSender().hasPermission("dkbank.admin.take")
                         || src.getSender().hasPermission("dkbank.admin.set")
                         || src.getSender().hasPermission("dkbank.admin.history")
+                        || src.getSender().hasPermission("dkbank.admin.tier")
                         || src.getSender().hasPermission("dkbank.admin.reload"))
                 .executes(this::help)
                 .then(Commands.literal("give").requires(perm("dkbank.admin.give"))
@@ -102,6 +121,21 @@ public final class BankCommand {
                                 .executes(ctx -> adminHistory(ctx, 1))
                                 .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                         .executes(ctx -> adminHistory(ctx, IntegerArgumentType.getInteger(ctx, "page"))))))
+                .then(Commands.literal("tier").requires(perm("dkbank.admin.tier"))
+                        .then(player("player").then(Commands.argument("tier", StringArgumentType.word())
+                                .suggests((ctx, builder) -> {
+                                    String typed = builder.getRemainingLowerCase();
+                                    for (Tier tier : bank().tiers().all()) {
+                                        if (tier.id().startsWith(typed)) builder.suggest(tier.id());
+                                    }
+                                    if ("default".startsWith(typed)) builder.suggest("default");
+                                    return builder.buildFuture();
+                                })
+                                .executes(ctx -> {
+                                    plugin.tiers().adminSet(sender(ctx), StringArgumentType.getString(ctx, "player"),
+                                            StringArgumentType.getString(ctx, "tier"));
+                                    return Command.SINGLE_SUCCESS;
+                                }))))
                 .then(Commands.literal("reload").requires(perm("dkbank.admin.reload")).executes(this::reload));
     }
 
