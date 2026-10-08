@@ -80,6 +80,15 @@ public final class BankCommand {
                             if (player != null) plugin.interest().showInfo(player);
                             return Command.SINGLE_SUCCESS;
                         }))
+                .then(Commands.literal("top").requires(perm("dkbank.top"))
+                        .executes(ctx -> menuOr(ctx, "top", () -> {
+                            plugin.reports().showTop(sender(ctx), 1);
+                            return Command.SINGLE_SUCCESS;
+                        }))
+                        .then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> {
+                            plugin.reports().showTop(sender(ctx), IntegerArgumentType.getInteger(ctx, "page"));
+                            return Command.SINGLE_SUCCESS;
+                        })))
                 .then(Commands.literal("tiers").requires(perm("dkbank.tiers"))
                         .executes(ctx -> menuOr(ctx, "tiers", () -> {
                             Player player = player(ctx);
@@ -110,6 +119,7 @@ public final class BankCommand {
                         || src.getSender().hasPermission("dkbank.admin.history")
                         || src.getSender().hasPermission("dkbank.admin.tier")
                         || src.getSender().hasPermission("dkbank.admin.alts")
+                        || src.getSender().hasPermission("dkbank.admin.economy")
                         || src.getSender().hasPermission("dkbank.admin.reload"))
                 .executes(this::help)
                 .then(Commands.literal("give").requires(perm("dkbank.admin.give"))
@@ -145,6 +155,15 @@ public final class BankCommand {
                                             StringArgumentType.getString(ctx, "tier"));
                                     return Command.SINGLE_SUCCESS;
                                 }))))
+                .then(Commands.literal("economy").requires(perm("dkbank.admin.economy"))
+                        .executes(ctx -> {
+                            plugin.reports().economy(sender(ctx), 7);
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(Commands.argument("days", IntegerArgumentType.integer(1, 365)).executes(ctx -> {
+                            plugin.reports().economy(sender(ctx), IntegerArgumentType.getInteger(ctx, "days"));
+                            return Command.SINGLE_SUCCESS;
+                        })))
                 .then(Commands.literal("alts").requires(perm("dkbank.admin.alts"))
                         .then(player("player")
                                 .executes(ctx -> {

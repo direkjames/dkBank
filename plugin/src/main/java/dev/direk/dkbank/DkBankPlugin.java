@@ -2,6 +2,8 @@ package dev.direk.dkbank;
 
 import dev.direk.dkbank.api.DkBankAPI;
 import dev.direk.dkbank.bank.BankService;
+import dev.direk.dkbank.bank.Leaderboard;
+import dev.direk.dkbank.bank.ReportService;
 import dev.direk.dkbank.bank.TierService;
 import dev.direk.dkbank.command.BankCommand;
 import dev.direk.dkbank.config.ConfigFile;
@@ -38,6 +40,8 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
     private @Nullable InterestService interest;
     private @Nullable TierService tierService;
     private @Nullable MenuManager menus;
+    private @Nullable Leaderboard leaderboard;
+    private @Nullable ReportService reports;
 
     /** Settings that moved out of config.yml, and where to. */
     private static final Map<String, String> MOVED = Map.of(
@@ -91,7 +95,18 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
             if (removed > 0) getLogger().info("Forgot " + removed + " old login addresses.");
         });
 
-        menus = new MenuManager(this, bank, tierService, interest);
+        leaderboard = new Leaderboard(this, store, () -> bank().settings());
+        leaderboard.start();
+        if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            try {
+                if (dev.direk.dkbank.hook.PapiHook.register(this)) getLogger().info("PlaceholderAPI: %dkbank_...% placeholders ready");
+            } catch (LinkageError | RuntimeException e) {
+                getLogger().log(Level.WARNING, "Couldn't register the PlaceholderAPI placeholders", e);
+            }
+        }
+
+        menus = new MenuManager(this, bank, tierService, interest, leaderboard);
+        reports = new ReportService(bank, leaderboard);
         menus.load();
         menus.register();
 
@@ -105,6 +120,7 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
     @Override
     public void onDisable() {
         if (menus != null) menus.closeAll(); // menu items must never stay in a player's hands
+        if (leaderboard != null) leaderboard.stop();
         if (interest != null) interest.shutdown(); // pays everyone's unfinished interest cycle
         if (bank != null) bank.shutdown(); // finishes everything in progress, refunds included
         if (database != null) database.close();
@@ -122,6 +138,7 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
         }
         bank().reload(settings, messages, tiers);
         menus().load();
+        leaderboard().start(); // the refresh time may have changed
     }
 
     /** Reads tiers.yml and registers each tier's permission. Null if the file has a mistake. */
@@ -158,6 +175,16 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
     public BankService bank() {
         if (bank == null) throw new IllegalStateException("dkBank isn't enabled");
         return bank;
+    }
+
+    public ReportService reports() {
+        if (reports == null) throw new IllegalStateException("dkBank isn't enabled");
+        return reports;
+    }
+
+    public Leaderboard leaderboard() {
+        if (leaderboard == null) throw new IllegalStateException("dkBank isn't enabled");
+        return leaderboard;
     }
 
     public MenuManager menus() {

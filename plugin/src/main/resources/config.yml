@@ -19,8 +19,12 @@ currency:
   show-cents: true
   thousands-separator: ","
   decimal-separator: "."
-  # Short forms used for big numbers in menus: thousand, million, billion, trillion, quadrillion
+  # Short forms for big numbers (placeholders, the leaderboard, short-from): thousand, million, billion, trillion, quadrillion
   compact-suffixes: [K, M, B, T, Q]
+  # Amounts this big or bigger are shown short everywhere ($1.2M instead of $1,234,567.89). 0 = never.
+  short-from: 0
+  # Decimals in short amounts: 0 = $1M, 1 = $1.2M, 2 = $1.25M
+  short-decimals: 1
   # true = show amounts the way your economy plugin does (e.g. EssentialsX's format) instead of the above
   use-economy-format: false
 
@@ -134,6 +138,17 @@ menus:
   chat-input-seconds: 30
   # Typing this instead cancels
   cancel-word: "cancel"
+
+# ------------------------------------------------------------
+#  Leaderboard (/bank top and the %dkbank_top_...% placeholders)
+# ------------------------------------------------------------
+leaderboard:
+  # Places kept (10-1000)
+  size: 100
+  # How often it's worked out again (at least 1m). It's never read from the database per view.
+  refresh: 5m
+  # Accounts never shown (e.g. staff or server accounts)
+  hidden: []
 
 # ------------------------------------------------------------
 #  /bank history

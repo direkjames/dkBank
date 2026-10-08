@@ -5,6 +5,10 @@ import dev.direk.dkbank.interest.InterestPlan;
 import dev.direk.dkbank.money.AmountInput;
 import dev.direk.dkbank.money.Money;
 import dev.direk.dkbank.storage.StoreTypes.Account;
+import dev.direk.dkbank.storage.StoreTypes.Activity;
+import dev.direk.dkbank.storage.StoreTypes.Earner;
+import dev.direk.dkbank.storage.StoreTypes.TopEntry;
+import dev.direk.dkbank.storage.StoreTypes.Totals;
 import dev.direk.dkbank.storage.StoreTypes.AltAccount;
 import dev.direk.dkbank.storage.StoreTypes.Entry;
 import dev.direk.dkbank.storage.StoreTypes.Beat;
@@ -46,7 +50,7 @@ import java.util.function.LongSupplier;
 public final class BankStore {
 
     /** Version of the table layout, stored in the meta table, for future migrations. */
-    public static final int SCHEMA_VERSION = 4;
+    public static final int SCHEMA_VERSION = 5;
 
     private final DataSource dataSource;
     private final SqlDialect dialect;
@@ -136,6 +140,8 @@ public final class BankStore {
                             + "first_seen BIGINT NOT NULL, last_seen BIGINT NOT NULL, PRIMARY KEY (ip_hash, uuid))",
                     "ALTER TABLE " + p + "accounts ADD COLUMN alt_exempt INT NOT NULL DEFAULT 0",
                     "CREATE INDEX " + p + "ips_uuid ON " + p + "ips (uuid, last_seen)");
+            // 0.5.0: economy report, which sums transactions by time.
+            case 5 -> List.of("CREATE INDEX " + p + "transactions_time ON " + p + "transactions (created_at)");
             default -> throw new IllegalStateException("No upgrade to table version " + version);
         };
     }
@@ -372,6 +378,77 @@ public final class BankStore {
         }
     }
 
+    // ------------------------------------------------------------------ leaderboard and reports
+
+    /** The richest accounts, richest first (ties: the name decides). */
+    public List<TopEntry> top(int limit) {
+        return transaction("read the leaderboard", c -> {
+            List<TopEntry> result = new ArrayList<>();
+            try (PreparedStatement ps = c.prepareStatement("SELECT uuid, name, balance FROM " + p + "accounts "
+                    + "WHERE balance > 0 ORDER BY balance DESC, name LIMIT ?")) {
+                ps.setInt(1, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        result.add(new TopEntry(UUID.fromString(rs.getString(1)), rs.getString(2), Money.fromCents(rs.getLong(3))));
+                    }
+                }
+            }
+            return result;
+        });
+    }
+
+    /** Number of accounts and all their money together. */
+    public Totals totals() {
+        return transaction("add up all accounts", c -> {
+            try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*), COALESCE(SUM(balance), 0) FROM " + p + "accounts");
+                 ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return new Totals(rs.getLong(1), Money.fromCents(rs.getLong(2)));
+            }
+        });
+    }
+
+    /** Count, amount and fees of every kind of transaction since {@code since}. */
+    public List<Activity> activity(long since) {
+        return transaction("add up recent transactions", c -> {
+            List<Activity> result = new ArrayList<>();
+            try (PreparedStatement ps = c.prepareStatement("SELECT type, COUNT(*), COALESCE(SUM(amount), 0), "
+                    + "COALESCE(SUM(fee), 0) FROM " + p + "transactions WHERE created_at >= ? GROUP BY type")) {
+                ps.setLong(1, since);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        TransactionType type;
+                        try {
+                            type = TransactionType.valueOf(rs.getString(1));
+                        } catch (IllegalArgumentException e) {
+                            continue; // written by a newer dkBank
+                        }
+                        result.add(new Activity(type, rs.getLong(2), Money.fromCents(rs.getLong(3)), Money.fromCents(rs.getLong(4))));
+                    }
+                }
+            }
+            return result;
+        });
+    }
+
+    /** The accounts with the most of one kind of transaction since {@code since}, e.g. top interest earners. */
+    public List<Earner> topBy(TransactionType type, long since, int limit) {
+        return transaction("find top earners", c -> {
+            List<Earner> result = new ArrayList<>();
+            try (PreparedStatement ps = c.prepareStatement("SELECT a.name, SUM(t.amount) AS total FROM " + p + "transactions t "
+                    + "JOIN " + p + "accounts a ON a.uuid = t.account WHERE t.type = ? AND t.created_at >= ? "
+                    + "GROUP BY a.uuid, a.name ORDER BY total DESC LIMIT ?")) {
+                ps.setString(1, type.name());
+                ps.setLong(2, since);
+                ps.setInt(3, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) result.add(new Earner(rs.getString(1), Money.fromCents(rs.getLong(2))));
+                }
+            }
+            return result;
+        });
+    }
+
     // ------------------------------------------------------------------ alt accounts
 
     /** The secret mixed into IP hashes, created once per database. */
@@ -509,7 +586,7 @@ public final class BankStore {
             BigDecimal after = row.balance().add(paid);
             writeInterest(c, uuid, after, after, 0, 0, now);
             if (paid.signum() > 0) log(c, uuid, TransactionType.INTEREST, paid, Money.ZERO, after, null, null, "offline");
-            return new Payout(paid, offline, after);
+            return new Payout(paid, offline, after, 0);
         });
     }
 
@@ -530,7 +607,7 @@ public final class BankStore {
 
             if (active + afk < plan.onlinePeriodMillis()) {
                 writeInterest(c, beat.uuid(), row.balance(), row.base(), active, afk, now);
-                return Payout.none(row.balance());
+                return new Payout(Money.ZERO, 0, row.balance(), active + afk);
             }
 
             // Pay exactly one period; the few seconds past it start the next cycle.
@@ -542,7 +619,7 @@ public final class BankStore {
             BigDecimal after = row.balance().add(paid);
             writeInterest(c, beat.uuid(), after, after, beat.active() ? excess : 0, beat.active() ? 0 : excess, now);
             if (paid.signum() > 0) log(c, beat.uuid(), TransactionType.INTEREST, paid, Money.ZERO, after, null, null, "online");
-            return new Payout(paid, 0, after);
+            return new Payout(paid, 0, after, excess);
         });
     }
 
@@ -563,7 +640,7 @@ public final class BankStore {
             BigDecimal after = row.balance().add(paid);
             writeInterest(c, beat.uuid(), after, after, 0, 0, clock.getAsLong());
             if (paid.signum() > 0) log(c, beat.uuid(), TransactionType.INTEREST, paid, Money.ZERO, after, null, null, "online");
-            return new Payout(paid, 0, after);
+            return new Payout(paid, 0, after, 0);
         });
     }
 

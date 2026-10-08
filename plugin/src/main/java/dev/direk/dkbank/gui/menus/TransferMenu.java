@@ -71,7 +71,7 @@ public final class TransferMenu extends Menu {
             Player target = targets.get(start + i);
             Map<String, String> v = new HashMap<>(base.plain());
             v.put("target", target.getName());
-            ItemStack head = template("player", new Values(v, base.rich()), target);
+            ItemStack head = template("player", new Values(v, base.rich()), target.getPlayerProfile());
             String name = target.getName();
             set(slots.get(i), head, type -> askAmount(name));
         }

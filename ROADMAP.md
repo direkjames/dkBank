@@ -104,13 +104,17 @@ double-pay or skip a payout, and offline accounts cost nothing.
 - ☑ Alt-account limit: only the first N accounts per connection can use the bank (salted IP hashes,
   local addresses ignored, staff can allow accounts, `dkbank.alts.bypass`, `/bank admin alts`)
 
-## Phase 5 · Integrations and admin tools — `0.5.0`
+## Phase 5 · Integrations and admin tools — `0.5.0` ☑
 
-- ☐ PlaceholderAPI: balance, formatted balance, tier, online/offline rate, next payout, rank on `/bank top`
-- ☐ `/bank top` leaderboard, cached so it never queries the database per view
-- ☐ Economy report: total in banks, interest created per day (inflation watch), top earners
-- ☐ Number formatting options: `1,234.56`, `1.2k`, currency symbol and position
-- ☐ Import from other bank plugins (to confirm which: e.g. BankPlus) — a strong selling point
+- ☑ PlaceholderAPI `%dkbank_...%`: balance (full, short, raw), tier, rates, cap, room, next payout,
+  rank, top N names and balances, server totals, alt lock. All from memory: safe for scoreboards and
+  tab lists, from any thread
+- ☑ `/bank top` leaderboard (chat and a podium menu), worked out every few minutes in the background,
+  never per view; hidden accounts
+- ☑ `/bank admin economy [days]`: money in banks, interest created per day and as a share of all bank
+  money (inflation watch), deposits, withdrawals, transfers, upgrades, fees, top interest earners
+- ☑ Number formatting: `short-from` shows big amounts short everywhere, `short-decimals` (0-2)
+- ✗ Import from other bank plugins: decided against
 
 ## Phase 6 · Developer API — `0.6.0`
 

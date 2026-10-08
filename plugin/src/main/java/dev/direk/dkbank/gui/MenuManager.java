@@ -1,6 +1,7 @@
 package dev.direk.dkbank.gui;
 
 import dev.direk.dkbank.bank.BankService;
+import dev.direk.dkbank.bank.Leaderboard;
 import dev.direk.dkbank.bank.TierService;
 import dev.direk.dkbank.config.ConfigFile;
 import dev.direk.dkbank.gui.menus.AmountMenu;
@@ -8,6 +9,7 @@ import dev.direk.dkbank.gui.menus.ConfirmUpgradeMenu;
 import dev.direk.dkbank.gui.menus.HistoryMenu;
 import dev.direk.dkbank.gui.menus.MainMenu;
 import dev.direk.dkbank.gui.menus.TiersMenu;
+import dev.direk.dkbank.gui.menus.TopMenu;
 import dev.direk.dkbank.gui.menus.TransferMenu;
 import dev.direk.dkbank.interest.InterestService;
 import dev.direk.dkbank.tier.Tier;
@@ -50,7 +52,7 @@ public final class MenuManager implements Listener {
 
     /** Every menu file, in the menus folder. */
     public static final List<String> FILES = List.of("main", "deposit", "withdraw", "transfer", "tiers",
-            "confirm-upgrade", "history");
+            "confirm-upgrade", "history", "top");
     /** Clicks closer together than this are ignored, so a double click can't run an action twice. */
     private static final long CLICK_COOLDOWN_MILLIS = 150;
 
@@ -58,13 +60,16 @@ public final class MenuManager implements Listener {
     private final BankService bank;
     private final TierService tiers;
     private final InterestService interest;
+    private final Leaderboard leaderboard;
     private final ChatPrompts prompts;
     private final NamespacedKey key;
     private final Map<UUID, Long> lastClick = new HashMap<>();
     private final Set<String> warned = Collections.synchronizedSet(new HashSet<>());
     private Map<String, MenuLayout> layouts = Map.of();
 
-    public MenuManager(JavaPlugin plugin, BankService bank, TierService tiers, InterestService interest) {
+    public MenuManager(JavaPlugin plugin, BankService bank, TierService tiers, InterestService interest,
+                       Leaderboard leaderboard) {
+        this.leaderboard = leaderboard;
         this.plugin = plugin;
         this.bank = bank;
         this.tiers = tiers;
@@ -134,6 +139,10 @@ public final class MenuManager implements Listener {
                 openHistory(player, 1);
                 yield null;
             }
+            case "top" -> {
+                openTop(player, 1);
+                yield null;
+            }
             default -> {
                 unknownAction(null, "open:" + name);
                 yield null;
@@ -155,6 +164,13 @@ public final class MenuManager implements Listener {
     public void openHistory(Player player, int page) {
         if (!plugin.isEnabled() || !player.isOnline()) return;
         if (allowed(player, "dkbank.history")) new HistoryMenu(this, player, layout("history"), page).open();
+    }
+
+    public void openTop(Player player, int page) {
+        if (!plugin.isEnabled() || !player.isOnline()) return;
+        if (allowed(player, "dkbank.top")) {
+            new TopMenu(this, player, layout("top"), leaderboard.snapshot(), page).open();
+        }
     }
 
     public void openConfirmUpgrade(Player player, Tier tier) {

@@ -153,6 +153,21 @@ menu:
   input-timeout: "<prefix><gray>You didn't type anything in time, so nothing was done."
 
 # ------------------------------------------------------------
+#  Leaderboard (/bank top)
+# ------------------------------------------------------------
+top:
+  # <page> <pages> <ago> (since it was worked out) <total> (all banks together)
+  header: "<prefix><gray>Richest banks <gray>(page <page>/<pages>, updated <ago> ago)"
+  # <rank> <player> <balance> <short>
+  entry: " <gold>#<rank></gold> <white><player></white> <gray>· <balance>"
+  # <rank>
+  you: "<gray>You are <gold>#<rank></gold>."
+  # <size>
+  you-unranked: "<gray>You aren't in the top <size> yet."
+  footer: "<gray>Page <page>/<pages>. <white>/bank top <page></white> for another page."
+  empty: "<prefix><gray>Nobody has money in the bank yet."
+
+# ------------------------------------------------------------
 #  History
 # ------------------------------------------------------------
 history:
@@ -195,6 +210,7 @@ help:
     - " <gold>/bank history [page]</gold> <gray>your transactions"
     - " <gold>/bank interest</gold> <gray>your interest rates and next payout"
     - " <gold>/bank tiers</gold> <gray>bank tiers"
+    - " <gold>/bank top</gold> <gray>the richest banks"
     - " <gold>/bank upgrade</gold> <gray>buy the next tier"
     - " <dark_gray>Amounts: 1000, 1.5k, 2m, all, half"
   admin:
@@ -204,6 +220,7 @@ help:
     - " <gold>/bank admin history <player> [page]"
     - " <gold>/bank admin tier <player> <tier|default>"
     - " <gold>/bank admin alts <player> [allow|reset]"
+    - " <gold>/bank admin economy [days]"
     - " <gold>/bank admin reload"
 
 # ------------------------------------------------------------
@@ -218,6 +235,20 @@ admin:
   take-insufficient: "<prefix><red><player> only has <balance> in the bank."
   # <player>
   limit: "<prefix><red>That would put <player>'s bank over the maximum."
+  # /bank admin economy [days]. <days> <total> <accounts> <interest-day> (last 24 hours) <interest-period>
+  # <interest-average> (per day) <interest-share> (interest in the period as % of all bank money)
+  # <deposits> <withdrawals> <transfers> <upgrades> <upgrade-count> <fees>
+  economy:
+    - "<prefix><gold><bold>Economy report</bold></gold> <gray>(last <days> days)"
+    - " <gray>In banks: <gold><total></gold> <gray>across <white><accounts></white> accounts"
+    - " <gray>Interest created: <green>+<interest-day></green> in 24h, <green>+<interest-period></green> in <days> days"
+    - " <gray>  about <white><interest-average></white> a day, <white><interest-share>%</white> of all bank money"
+    - " <gray>Deposits: <white><deposits></white> · Withdrawals: <white><withdrawals></white>"
+    - " <gray>Sent between players: <white><transfers>"
+    - " <gray>Spent on upgrades: <white><upgrades></white> (<upgrade-count>) · Fees: <white><fees>"
+  economy-earners: " <gray>Top interest earners:"
+  # <rank> <player> <amount>
+  economy-earner: "   <gray><rank>.</gray> <white><player></white> <green>+<amount>"
   # /bank admin alts. <player> <count> <max> <window>
   alts-header: "<prefix><gray>Accounts on <white><player></white>'s latest connection (last <window>, limit <max>):"
   # <name> <status> <date> (first seen there)

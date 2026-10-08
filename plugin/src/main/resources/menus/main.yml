@@ -6,7 +6,7 @@
 #  slot or slots (0 is top left; a row has 9), action or actions, permission (hides the item).
 #  Custom heads: texture: "<Value from minecraft-heads.com>" (material can be left out), or
 #  material: "head:<Value>". A textures.minecraft.net link or just the texture id works too.
-#  Actions: open:<menu> (deposit, withdraw, transfer, history, tiers, main), back, close,
+#  Actions: open:<menu> (deposit, withdraw, transfer, history, tiers, top, main), back, close,
 #           command:<command>, and here: upgrade (asks to confirm the next tier)
 #  PlaceholderAPI placeholders work in names and lore.
 #
@@ -97,7 +97,7 @@ items:
       - "<gray>Next payout in <white><next-payout></white> of play"
 
   upgrade:
-    slot: 31
+    slot: 30
     material: NETHER_STAR
     glow: true
     name: "<gradient:#7DF9FF:#3A8DFF><bold>Upgrade your bank</bold></gradient>"
@@ -110,7 +110,7 @@ items:
     permission: dkbank.upgrade
   # Shown instead of "upgrade" at the highest tier you can buy
   upgrade-max:
-    slot: 31
+    slot: 30
     material: NETHER_STAR
     name: "<gray>Upgrade your bank"
     lore:
@@ -118,6 +118,17 @@ items:
       - "<gray>you can buy."
     action: "open:tiers"
     permission: dkbank.tiers
+
+  top:
+    slot: 32
+    material: SUNFLOWER
+    name: "<yellow><bold>Richest banks"
+    lore:
+      - "<gray>The leaderboard"
+      - ""
+      - "<yellow>» Click to view"
+    action: "open:top"
+    permission: dkbank.top
 
   deposit:
     slot: 37

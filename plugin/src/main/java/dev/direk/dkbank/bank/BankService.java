@@ -205,6 +205,20 @@ public final class BankService {
         return tier;
     }
 
+    /**
+     * A loaded account's tier without checking permissions: the online player's tier as last worked out,
+     * or the bought tier. Any thread (e.g. placeholders).
+     */
+    public Tier tierFor(UUID uuid) {
+        Tiers t = tiers;
+        String online = onlineTiers.get(uuid);
+        if (online != null) {
+            Optional<Tier> tier = t.byId(online);
+            if (tier.isPresent()) return tier.get();
+        }
+        return t.bought(boughtTier(uuid));
+    }
+
     /** @return the bought tier of a loaded account, or null for the first tier or if not loaded */
     public @Nullable String boughtTier(UUID uuid) {
         String tier = boughtTiers.get(uuid);
@@ -662,12 +676,17 @@ public final class BankService {
 
     // ------------------------------------------------------------------ helpers
 
+    /** Always short: {@code $1.2M}. */
+    public String fmtShort(BigDecimal amount) {
+        return settings.format().compact(amount);
+    }
+
     public String fmt(BigDecimal amount) {
         if (settings.useEconomyFormat()) {
             String formatted = wallet.format(amount);
             if (formatted != null) return formatted;
         }
-        return settings.format().format(amount);
+        return settings.format().display(amount);
     }
 
     private static Limits limits(Settings s) {

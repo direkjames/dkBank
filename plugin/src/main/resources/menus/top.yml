@@ -1,0 +1,101 @@
+# ============================================================
+#  dkBank menu: leaderboard (/bank top)
+#  Item settings and the actions open, back, close and command: see main.yml.
+#  Here also: previous, next (pages). Fixed items previous / next only show when there's a page to
+#  go to; empty only when nobody has money in the bank yet.
+#
+#  slots.entries: where accounts go, richest first. Templates first, second and third are for the
+#  top three (leave one out to use entry), entry for everyone else.
+#  Values in those: <rank> <target> <target-balance> <target-short> (e.g. $1.2M); head: target shows
+#  their skin.
+#  Values everywhere: those in main.yml, plus <rank> (yours) <page> <pages> <total> <accounts> <updated>
+# ============================================================
+
+title: "<gradient:#D4A017:#A67C00><bold>dkBank</bold></gradient> <dark_gray>· Richest banks"
+rows: 6
+
+sounds:
+  open: "item.book.page_turn"
+  click: "ui.button.click"
+  success: "entity.experience_orb.pickup"
+  error: "entity.villager.no"
+
+fill:
+  material: BLACK_STAINED_GLASS_PANE
+  hide-tooltip: true
+border:
+  material: GRAY_STAINED_GLASS_PANE
+  hide-tooltip: true
+
+slots:
+  entries: [13, 21, 23, 28-34, 37-43]
+
+templates:
+  first:
+    material: PLAYER_HEAD
+    head: target
+    glow: true
+    name: "<gradient:#F5C542:#D4A017><bold>#1 <target></bold></gradient>"
+    lore:
+      - "<white><target-balance>"
+  second:
+    material: PLAYER_HEAD
+    head: target
+    name: "<#D9D9D9><bold>#2 <target>"
+    lore:
+      - "<white><target-balance>"
+  third:
+    material: PLAYER_HEAD
+    head: target
+    name: "<#CD7F32><bold>#3 <target>"
+    lore:
+      - "<white><target-balance>"
+  entry:
+    material: PLAYER_HEAD
+    head: target
+    name: "<gray>#<rank></gray> <white><target>"
+    lore:
+      - "<white><target-balance>"
+
+items:
+  accents:
+    slots: [0, 8, 45, 53]
+    material: YELLOW_STAINED_GLASS_PANE
+    hide-tooltip: true
+
+  info:
+    slot: 4
+    material: GOLD_BLOCK
+    name: "<gradient:#F5C542:#D4A017><bold>Richest banks</bold></gradient>"
+    lore:
+      - "<gray>Your place: <white>#<rank>"
+      - "<gray>All banks together: <white><total>"
+      - "<gray>Accounts: <white><accounts>"
+      - "<gray>Updated <updated> ago"
+
+  empty:
+    slot: 22
+    material: GRAY_DYE
+    name: "<gray>Nobody has money in the bank yet"
+
+  back:
+    slot: 45
+    material: ARROW
+    name: "<gray>Back"
+    action: back
+
+  previous:
+    slot: 48
+    material: SPECTRAL_ARROW
+    name: "<yellow>« Previous page"
+    lore:
+      - "<gray>Page <page> of <pages>"
+    action: previous
+
+  next:
+    slot: 50
+    material: SPECTRAL_ARROW
+    name: "<yellow>Next page »"
+    lore:
+      - "<gray>Page <page> of <pages>"
+    action: next

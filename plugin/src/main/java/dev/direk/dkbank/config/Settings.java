@@ -39,8 +39,17 @@ public record Settings(
         AfkDetection afk,
         Menus menus,
         Alts alts,
+        Top top,
         Storage storage
 ) {
+
+    /**
+     * @param size          places kept
+     * @param refreshMillis how often it's worked out again
+     * @param hidden        names never shown, lower case
+     */
+    public record Top(int size, long refreshMillis, Set<String> hidden) {
+    }
 
     /**
      * @param maxPerAddress  accounts from one connection that can use the bank
@@ -96,7 +105,9 @@ public record Settings(
                 c.getBoolean("currency.show-cents", true),
                 c.getString("currency.thousands-separator", ","),
                 c.getString("currency.decimal-separator", "."),
-                suffixes);
+                suffixes,
+                c.getInt("currency.short-decimals", 1),
+                shortFrom(check.amount(c, "currency.short-from", "0", true)));
 
         String zone = c.getString("history.timezone", "");
         ZoneId zoneId;
@@ -192,7 +203,15 @@ public record Settings(
                         check.duration(c, "alt-limit.remember", "30d", Duration.ofDays(1)),
                         c.getBoolean("alt-limit.locked-can-withdraw", true),
                         c.getBoolean("alt-limit.tell-player", true)),
+                new Top(Math.max(10, Math.min(1000, c.getInt("leaderboard.size", 100))),
+                        check.duration(c, "leaderboard.refresh", "5m", Duration.ofMinutes(1)),
+                        c.getStringList("leaderboard.hidden").stream().map(n -> n.trim().toLowerCase(Locale.ROOT))
+                                .collect(Collectors.toUnmodifiableSet())),
                 storage);
+    }
+
+    private static @Nullable BigDecimal shortFrom(BigDecimal value) {
+        return value.signum() > 0 ? value : null;
     }
 
     /** @return true if the amount is above the per-transaction limit (0 means no limit) */

@@ -49,7 +49,7 @@ public record ItemSpec(String material, int amount, @Nullable String name, List<
     }
 
     /** Where it's drawn: the viewer, the values to fill in, and whose head {@code head: target} shows. */
-    public record Context(Player viewer, Values values, @Nullable Player target) {
+    public record Context(Player viewer, Values values, com.destroystokyo.paper.profile.@Nullable PlayerProfile target) {
     }
 
     /** @return the item, or null for AIR */
@@ -90,8 +90,8 @@ public record ItemSpec(String material, int amount, @Nullable String name, List<
                             + "' in a menu file isn't a head texture. Use the Value from minecraft-heads.com.");
                 }
             } else if (head != null) {
-                Player owner = head.equalsIgnoreCase("target") ? ctx.target() : ctx.viewer();
-                if (owner != null) skull.setPlayerProfile(owner.getPlayerProfile());
+                var owner = head.equalsIgnoreCase("target") ? ctx.target() : ctx.viewer().getPlayerProfile();
+                if (owner != null) skull.setPlayerProfile(owner);
             }
         }
         item.setItemMeta(meta);

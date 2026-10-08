@@ -109,10 +109,11 @@ public final class StoreTypes {
      * @param amount        interest added (zero if none)
      * @param offlineMillis offline time it covers (login payouts only)
      * @param balance       balance afterwards
+     * @param cycleMillis   online time now in the payout cycle (towards the next payout)
      */
-    public record Payout(BigDecimal amount, long offlineMillis, BigDecimal balance) {
+    public record Payout(BigDecimal amount, long offlineMillis, BigDecimal balance, long cycleMillis) {
         static Payout none(BigDecimal balance) {
-            return new Payout(Money.ZERO, 0, balance);
+            return new Payout(Money.ZERO, 0, balance, 0);
         }
 
         public boolean paid() {
@@ -127,6 +128,27 @@ public final class StoreTypes {
      * @param exempt    staff allowed it, whatever the limit
      */
     public record AltAccount(UUID uuid, String name, long firstSeen, long lastSeen, boolean exempt) {
+    }
+
+    /** One line of the leaderboard. */
+    public record TopEntry(UUID uuid, String name, BigDecimal balance) {
+    }
+
+    /** Every account together. */
+    public record Totals(long accounts, BigDecimal balance) {
+    }
+
+    /**
+     * What happened with one kind of transaction in a time span.
+     *
+     * @param amount sum of the amounts
+     * @param fees   sum of the fees
+     */
+    public record Activity(TransactionType type, long count, BigDecimal amount, BigDecimal fees) {
+    }
+
+    /** An account and a sum, e.g. interest earned in a week. */
+    public record Earner(String name, BigDecimal amount) {
     }
 
     /** Result of a transfer: the sender's side, plus the receiver's new balance. */

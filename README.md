@@ -59,7 +59,7 @@ the **Reload All Gradle Projects** button (circular arrows) at the top of the Gr
 The first run of each server stops to ask you to accept the Minecraft EULA: set `eula=true` in
 `run/<server>/eula.txt` and run the task again. Stop a server by typing `stop` in its console.
 
-## Commands (0.4.0)
+## Commands (0.5.0)
 
 With `menus.open-from-commands: true` (the default), `/bank`, `/bank deposit`, `/bank withdraw`,
 `/bank pay`, `/bank tiers` and `/bank history` open menus when typed on their own. The menus are in
@@ -76,12 +76,14 @@ With `menus.open-from-commands: true` (the default), `/bank`, `/bank deposit`, `
 | `/bank history [page]` | `dkbank.history` (everyone) |
 | `/bank interest` | `dkbank.interest` (everyone) |
 | `/bank tiers` | `dkbank.tiers` (everyone) |
+| `/bank top [page]` | `dkbank.top` (everyone) |
 | `/bank upgrade [confirm]` | `dkbank.upgrade` (everyone) |
 | `/bank balance <player>` | `dkbank.balance.others` (op) |
 | `/bank admin give\|take\|set <player> <amount>` | `dkbank.admin.give` / `.take` / `.set` (op) |
 | `/bank admin history <player> [page]` | `dkbank.admin.history` (op) |
 | `/bank admin tier <player> <tier\|default>` | `dkbank.admin.tier` (op) |
 | `/bank admin alts <player> [allow\|reset]` | `dkbank.admin.alts` (op) |
+| `/bank admin economy [days]` | `dkbank.admin.economy` (op) |
 | *(never locked by the alt limit)* | `dkbank.alts.bypass` (op) |
 | *(a tier from a rank)* | `dkbank.tier.<name>`, e.g. `dkbank.tier.gold` (nobody, not even ops) |
 | `/bank admin reload` | `dkbank.admin.reload` (op) |
@@ -95,3 +97,22 @@ Amounts: `1000`, `1,000`, `1.5k`, `2m`, `1b`, `all`, `half`. `dkbank.admin` give
 3. Upload `plugin/build/libs/dkBank-<version>.jar` to the marketplaces.
 
 To publish the Developer API to your local Maven repository: `./gradlew :api:publishToMavenLocal`.
+
+## Placeholders (PlaceholderAPI)
+
+All values come from memory, so scoreboards and tab lists can use them as often as they like.
+
+| Placeholder | Shows |
+|---|---|
+| `%dkbank_balance%` | Bank balance, formatted like the rest of dkBank |
+| `%dkbank_balance_short%` / `_full` / `_raw` | `$1.2M` / `$1,234,567.89` / `1234567.89` |
+| `%dkbank_max_balance%`, `%dkbank_room%` | Tier's maximum balance, space left |
+| `%dkbank_tier%`, `%dkbank_tier_plain%`, `%dkbank_tier_id%` | Tier name in colour, without colour, its id |
+| `%dkbank_next_tier%`, `%dkbank_next_tier_cost%` | The tier `/bank upgrade` buys, and its price |
+| `%dkbank_online_rate%`, `%dkbank_offline_rate%`, `%dkbank_cap%` | Interest rates (percent) and cap |
+| `%dkbank_next_payout%`, `%dkbank_next_payout_seconds%` | Playtime until the next payout |
+| `%dkbank_locked%` | `true` if the alt-account limit locks the bank |
+| `%dkbank_rank%` | Place on the leaderboard (`-` if not on it) |
+| `%dkbank_top_name_<n>%`, `%dkbank_top_balance_<n>%`, `%dkbank_top_balance_short_<n>%` | Leaderboard place n |
+| `%dkbank_total%`, `%dkbank_total_short%`, `%dkbank_accounts%` | All banks together, number of accounts |
+

@@ -120,4 +120,20 @@ class MoneyTest {
         assertEquals("$2.7B", f.compact($("2799999999")));
         assertEquals("-$1.5K", f.compact($("-1500")));
     }
+
+    @Test
+    void shortAmounts() {
+        String[] suffixes = {"K", "M", "B", "T", "Q"};
+        MoneyFormat two = new MoneyFormat("$", false, true, ",", ".", suffixes, 2, null);
+        assertEquals("$1.25M", two.compact($("1259999")));
+        assertEquals("$1,259,999.00", two.display($("1259999")), "never short unless short-from is set");
+
+        MoneyFormat fromMillion = new MoneyFormat("$", false, true, ",", ".", suffixes, 1, $("1000000"));
+        assertEquals("$999,999.99", fromMillion.display($("999999.99")));
+        assertEquals("$1M", fromMillion.display($("1000000")));
+        assertEquals("$2.5B", fromMillion.display($("2500000000")));
+
+        MoneyFormat none = new MoneyFormat("$", false, true, ",", ".", suffixes, 0, null);
+        assertEquals("$12K", none.compact($("12999")));
+    }
 }

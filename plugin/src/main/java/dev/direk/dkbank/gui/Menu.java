@@ -125,7 +125,8 @@ public abstract class Menu implements InventoryHolder {
     }
 
     /** Builds a template from the layout, or null if the file doesn't have it. */
-    protected final @Nullable ItemStack template(String key, Values values, @Nullable Player target) {
+    protected final @Nullable ItemStack template(String key, Values values,
+                                                 com.destroystokyo.paper.profile.@Nullable PlayerProfile target) {
         ItemSpec spec = layout.template(key);
         return spec == null ? null : spec.build(new ItemSpec.Context(player, values, target), menus.log());
     }

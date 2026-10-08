@@ -59,6 +59,8 @@ public final class InterestService implements Listener {
     private final ExecutorService worker;
     /** When each online player's time was last recorded. Main thread only. */
     private final Map<UUID, Long> lastBeat = new HashMap<>();
+    /** Online time in each player's payout cycle as last saved, and when: for placeholders. Any thread. */
+    private final Map<UUID, long[]> progress = new java.util.concurrent.ConcurrentHashMap<>();
     private @Nullable BukkitTask heartbeat;
 
     public InterestService(JavaPlugin plugin, BankStore store, BankService bank) {
@@ -126,6 +128,7 @@ public final class InterestService implements Listener {
             Tier tier = bought.isAbove(byPermission) ? bought : byPermission;
             InterestPlan plan = bank.alts().isLocked(uuid, bypass) ? noInterest(tier.plan()) : tier.plan();
             Payout payout = store.settleLogin(uuid, plan, tier.maxBalance());
+            progress.put(uuid, new long[]{0, System.currentTimeMillis()});
             if (payout.paid()) bank.cacheBalance(uuid, payout.balance());
             if (payout.paid() && bank.settings().interest().notifyOffline()) {
                 bank.runOnMain(() -> Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -137,6 +140,7 @@ public final class InterestService implements Listener {
     }
 
     private void quit(Player player) {
+        progress.remove(player.getUniqueId());
         Long last = lastBeat.remove(player.getUniqueId());
         if (last == null) return;
         Beat beat = beat(player, last, System.currentTimeMillis());
@@ -155,6 +159,7 @@ public final class InterestService implements Listener {
             Beat beat = beat(player, last, now);
             submit("record " + player.getName() + "'s online time", () -> {
                 Payout payout = store.beat(beat);
+                if (lastBeatContains(uuid)) progress.put(uuid, new long[]{payout.cycleMillis(), System.currentTimeMillis()});
                 if (!payout.paid()) return;
                 bank.cacheBalance(uuid, payout.balance());
                 if (bank.settings().interest().notifyOnline()) {
@@ -185,6 +190,22 @@ public final class InterestService implements Listener {
                 "time", TimeText.format(Duration.ofMillis(payout.offlineMillis()))));
         Key sound = bank.settings().interest().sound();
         if (sound != null) player.playSound(Sound.sound(sound, Sound.Source.MASTER, 1f, 1f));
+    }
+
+    private boolean lastBeatContains(UUID uuid) {
+        return Bukkit.getPlayer(uuid) != null; // they may have left while this was queued
+    }
+
+    /**
+     * Online time until a player's next payout, from the last saved progress (no database). Any thread.
+     *
+     * @return milliseconds, or -1 if unknown (offline, or not loaded yet)
+     */
+    public long untilPayout(UUID uuid, long periodMillis) {
+        long[] p = progress.get(uuid);
+        if (p == null) return -1;
+        long done = p[0] + Math.min(MAX_BEAT_MILLIS, Math.max(0, System.currentTimeMillis() - p[1]));
+        return Math.max(1000, periodMillis - done);
     }
 
     // ------------------------------------------------------------------ /bank interest

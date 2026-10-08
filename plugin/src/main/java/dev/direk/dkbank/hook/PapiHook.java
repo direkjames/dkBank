@@ -14,4 +14,9 @@ public final class PapiHook {
     public static String apply(Player player, String text) {
         return PlaceholderAPI.setPlaceholders(player, text);
     }
+
+    /** Registers the %dkbank_...% placeholders. */
+    public static boolean register(dev.direk.dkbank.DkBankPlugin plugin) {
+        return new DkBankExpansion(plugin).register();
+    }
 }

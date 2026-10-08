@@ -1,5 +1,7 @@
 package dev.direk.dkbank.money;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -12,9 +14,27 @@ import java.math.RoundingMode;
  * @param thousands         thousands separator, e.g. {@code ,} ({@code ""} for none)
  * @param decimal           decimal separator, e.g. {@code .}
  * @param compactSuffixes   suffixes for thousands, millions, billions, trillions, quadrillions
+ * @param compactDecimals   decimals in short amounts: 1 gives {@code $1.2M}, 2 gives {@code $1.25M}
+ * @param shortFrom         amounts this big or bigger are shown short everywhere; null for never
  */
 public record MoneyFormat(String symbol, boolean symbolAfter, boolean showCents, String thousands,
-                          String decimal, String[] compactSuffixes) {
+                          String decimal, String[] compactSuffixes, int compactDecimals,
+                          @Nullable BigDecimal shortFrom) {
+
+    public MoneyFormat {
+        compactDecimals = Math.max(0, Math.min(2, compactDecimals));
+    }
+
+    /** One decimal in short amounts, and never short unless asked. */
+    public MoneyFormat(String symbol, boolean symbolAfter, boolean showCents, String thousands, String decimal,
+                       String[] compactSuffixes) {
+        this(symbol, symbolAfter, showCents, thousands, decimal, compactSuffixes, 1, null);
+    }
+
+    /** The way amounts are shown in messages and menus: in full, or short from {@link #shortFrom()} up. */
+    public String display(BigDecimal amount) {
+        return shortFrom != null && amount.abs().compareTo(shortFrom) >= 0 ? compact(amount) : format(amount);
+    }
 
     public static final MoneyFormat DEFAULT = new MoneyFormat("$", false, true, ",", ".",
             new String[]{"K", "M", "B", "T", "Q"});
@@ -43,7 +63,7 @@ public record MoneyFormat(String symbol, boolean symbolAfter, boolean showCents,
         return (negative ? "-" : "") + sb;
     }
 
-    /** {@code $1.2M}, {@code $950}, {@code $12.5K}. One decimal at most, rounded down. */
+    /** {@code $1.2M}, {@code $950}, {@code $12.5K}. {@link #compactDecimals()} decimals at most, rounded down. */
     public String compact(BigDecimal amount) {
         BigDecimal abs = amount.abs();
         BigDecimal thousand = BigDecimal.valueOf(1000);
@@ -56,7 +76,7 @@ public record MoneyFormat(String symbol, boolean symbolAfter, boolean showCents,
         if (tier < 0) {
             return withSymbol(amount.setScale(0, RoundingMode.DOWN).toPlainString()); // under 1,000: no cents
         }
-        BigDecimal shown = scaled.setScale(1, RoundingMode.DOWN).stripTrailingZeros();
+        BigDecimal shown = scaled.setScale(compactDecimals, RoundingMode.DOWN).stripTrailingZeros();
         String text = shown.toPlainString().replace(".", decimal) + compactSuffixes[tier];
         return withSymbol((amount.signum() < 0 ? "-" : "") + text);
     }

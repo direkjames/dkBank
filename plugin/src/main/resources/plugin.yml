@@ -22,6 +22,7 @@ permissions:
       dkbank.interest: true
       dkbank.tiers: true
       dkbank.upgrade: true
+      dkbank.top: true
   dkbank.deposit:
     description: Deposit money into the bank.
     default: true
@@ -43,6 +44,9 @@ permissions:
   dkbank.upgrade:
     description: Buy the next bank tier (/bank upgrade).
     default: true
+  dkbank.top:
+    description: See the leaderboard (/bank top).
+    default: true
   dkbank.balance.others:
     description: See other players' bank balances.
     default: op
@@ -57,6 +61,7 @@ permissions:
       dkbank.admin.reload: true
       dkbank.admin.tier: true
       dkbank.admin.alts: true
+      dkbank.admin.economy: true
       dkbank.balance.others: true
   dkbank.admin.give:
     description: Add money to a bank account.
@@ -78,6 +83,9 @@ permissions:
     default: op
   dkbank.admin.alts:
     description: See accounts sharing a connection, and allow alt accounts.
+    default: op
+  dkbank.admin.economy:
+    description: See the economy report (/bank admin economy).
     default: op
   dkbank.alts.bypass:
     description: Never locked by the alt-account limit.
