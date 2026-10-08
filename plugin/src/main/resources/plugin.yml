@@ -1,0 +1,8 @@
+name: dkBank
+version: '${version}'
+main: dev.direk.dkbank.DkBankPlugin
+api-version: '1.21.4'
+author: Direk
+description: A premium bank with separate online and offline interest.
+folia-supported: false
+softdepend: [Vault, PlaceholderAPI]

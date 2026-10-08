@@ -21,18 +21,20 @@ Status legend: ☐ planned · ◐ in progress · ☑ done
 | Storage | **SQLite** (default), **MySQL / MariaDB** (networks) | Through HikariCP, all queries off the main thread |
 | Libraries | HikariCP **shaded and relocated** into the jar | Works on servers without internet access, and can't clash with other plugins |
 | Packages | `dev.direk.dkbank` (plugin), `dev.direk.dkbank.api` (API) | |
+| Null safety | JSpecify `@NullMarked` | Paper's own standard; the JetBrains annotations aren't available to plugins on 1.21.4 |
 | Licenses | Proprietary (plugin), MIT (API) | Done |
 
 ---
 
-## Phase 0 · Project setup — `0.0.x`
+## Phase 0 · Project setup — `0.0.x` ☑
 
-- ☐ Gradle multi-module project: `api` (MIT, published for developers) and `plugin` (proprietary)
-- ☐ Java 21 toolchain, paper-api 1.21.4, Vault API, PlaceholderAPI (soft)
-- ☐ Shading and relocation of HikariCP
-- ☐ Test servers on demand with run-paper for **1.21.4, 1.21.11, 26.1 and 26.3**, plus Purpur
-- ☐ JUnit for the money and interest math
-- ☐ GitHub Actions: build and test on every push to the private repo
+- ☑ Gradle 9.8 multi-module project: `api` (MIT, published for developers) and `plugin` (proprietary)
+- ☑ Java 21 toolchain, paper-api 1.21.4, Vault API, PlaceholderAPI (soft), versions in `gradle/libs.versions.toml`
+- ☑ HikariCP shaded and relocated to `dev.direk.dkbank.libs.hikari`
+- ☑ Test server tasks for Paper and Purpur **1.21.4, 1.21.11, 26.1 and 26.3**, each with the right Java
+- ☑ JUnit 6, with a setup test guarding plugin.yml and the Java 21 class format
+- ☑ GitHub Actions: build and test on every push, jar attached to each run
+- ☑ API entry point `DkBankAPI.get()`, registered as a Bukkit service
 
 ## Phase 1 · Core banking — `0.1.0`
 
