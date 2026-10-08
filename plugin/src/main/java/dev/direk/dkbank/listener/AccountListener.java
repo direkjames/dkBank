@@ -4,7 +4,9 @@ import dev.direk.dkbank.DkBankPlugin;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.entity.Player;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.event.server.ServiceRegisterEvent;
@@ -25,7 +27,20 @@ public final class AccountListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPreLogin(AsyncPlayerPreLoginEvent event) {
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) return;
-        plugin.bank().loadAccount(event.getUniqueId(), event.getName());
+        plugin.bank().loadAccount(event.getUniqueId(), event.getName(), event.getAddress());
+    }
+
+    /** Tells players locked by the alt-account limit why, a moment after they join. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        if (!plugin.bank().settings().alts().tellPlayer()) return;
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline() && plugin.bank().locked(player)) {
+                plugin.bank().messages().send(player, "alts.locked-notice",
+                        java.util.Map.of("max", String.valueOf(plugin.bank().settings().alts().maxPerAddress())));
+            }
+        }, 60L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -102,6 +102,40 @@ afk-detection:
   afk-values: ["yes", "true"]
 
 # ------------------------------------------------------------
+#  Alt-account limit
+#  Only the first <max-accounts> accounts that played from the same internet connection can use the
+#  bank. Accounts after that are locked: no deposits, transfers, upgrades or interest. Stops players
+#  farming interest (or starting money) on alt accounts.
+#  - Staff can allow an account anyway: /bank admin alts <player> allow
+#  - dkbank.alts.bypass skips the limit (given to ops by default)
+#  - Addresses are stored as salted hashes, never the address itself.
+#  - Behind a proxy (Velocity, BungeeCord), IP forwarding must be on; Bedrock players need Floodgate
+#    sending their real address. Players on a local address (127.0.0.1, 192.168.x.x) are never locked.
+# ------------------------------------------------------------
+alt-limit:
+  enabled: true
+  # Accounts per connection that can use the bank (families and roommates share one, so not too low)
+  max-accounts: 3
+  # Logins older than this are forgotten (e.g. 30d, 60d). Someone who moved away stops counting.
+  remember: 30d
+  # true = locked accounts can still withdraw money they already had in the bank
+  locked-can-withdraw: true
+  # Tell locked players why when they join
+  tell-player: true
+
+# ------------------------------------------------------------
+#  Menus (layouts, items and sounds are in the menus folder)
+# ------------------------------------------------------------
+menus:
+  # true = /bank, /bank deposit, /bank withdraw, /bank pay, /bank tiers and /bank history (typed without
+  # anything after them) open menus. false = they use chat, and /bank menu opens the menu.
+  open-from-commands: true
+  # Seconds to type an amount or a player name in chat (5-300)
+  chat-input-seconds: 30
+  # Typing this instead cancels
+  cancel-word: "cancel"
+
+# ------------------------------------------------------------
 #  /bank history
 # ------------------------------------------------------------
 history:

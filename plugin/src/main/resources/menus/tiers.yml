@@ -1,0 +1,101 @@
+# ============================================================
+#  dkBank menu: tiers (/bank tiers)
+#  The tiers themselves are in the main tiers.yml (next to config.yml).
+#  Item settings and the actions open, back, close and command: see main.yml.
+#
+#  slots.tiers: where the tiers go, lowest first. Each uses the template for where the player stands:
+#    current (their tier), owned (below theirs), next (the one they can buy; click to upgrade),
+#    locked (later), rank-only (only through a rank permission)
+#  Values in those: <tier> <icon> <cost> <max-balance> <cap> <online-rate> <offline-rate>
+#  <online-period> <offline-period> and <current> (the player's own tier).
+# ============================================================
+
+title: "<gradient:#D4A017:#A67C00><bold>dkBank</bold></gradient> <dark_gray>· Bank tiers"
+rows: 4
+
+sounds:
+  open: "item.book.page_turn"
+  click: "ui.button.click"
+  success: "entity.experience_orb.pickup"
+  error: "entity.villager.no"
+
+fill:
+  material: BLACK_STAINED_GLASS_PANE
+  hide-tooltip: true
+border:
+  material: GRAY_STAINED_GLASS_PANE
+  hide-tooltip: true
+
+slots:
+  tiers: [10-16, 19-25]
+
+templates:
+  current:
+    material: "<icon>"
+    glow: true
+    name: "<tier> <gold>(your tier)"
+    lore:
+      - "<gray>Holds up to <white><max-balance>"
+      - "<gray>Interest on up to <white><cap>"
+      - "<gray>Online: <green><online-rate>%</green> per <online-period>"
+      - "<gray>Offline: <green><offline-rate>%</green> per <offline-period>"
+  owned:
+    material: "<icon>"
+    name: "<tier> <green>✔"
+    lore:
+      - "<gray>Holds up to <white><max-balance>"
+      - "<gray>Interest on up to <white><cap>"
+      - "<gray>Online: <green><online-rate>%</green> per <online-period>"
+      - "<gray>Offline: <green><offline-rate>%</green> per <offline-period>"
+  next:
+    material: "<icon>"
+    name: "<tier> <yellow>▲ next"
+    lore:
+      - "<gray>Holds up to <white><max-balance>"
+      - "<gray>Interest on up to <white><cap>"
+      - "<gray>Online: <green><online-rate>%</green> per <online-period>"
+      - "<gray>Offline: <green><offline-rate>%</green> per <offline-period>"
+      - ""
+      - "<gray>Cost: <gold><cost></gold> (from your bank)"
+      - "<yellow>» Click to upgrade"
+  locked:
+    material: GRAY_DYE
+    name: "<tier> <gray>(locked)"
+    lore:
+      - "<gray>Holds up to <white><max-balance>"
+      - "<gray>Interest on up to <white><cap>"
+      - "<gray>Online: <green><online-rate>%</green> per <online-period>"
+      - "<gray>Offline: <green><offline-rate>%</green> per <offline-period>"
+      - ""
+      - "<gray>Cost: <white><cost>"
+      - "<gray>Buy the tiers before it first."
+  rank-only:
+    material: "<icon>"
+    name: "<tier> <light_purple>(rank perk)"
+    lore:
+      - "<gray>Holds up to <white><max-balance>"
+      - "<gray>Interest on up to <white><cap>"
+      - "<gray>Online: <green><online-rate>%</green> per <online-period>"
+      - "<gray>Offline: <green><offline-rate>%</green> per <offline-period>"
+      - ""
+      - "<gray>Comes with a server rank."
+
+items:
+  accents:
+    slots: [0, 8, 27, 35]
+    material: YELLOW_STAINED_GLASS_PANE
+    hide-tooltip: true
+
+  info:
+    slot: 4
+    material: "<tier-icon>"
+    name: "<gray>Your tier: <tier>"
+    lore:
+      - "<gray>Balance: <white><balance>"
+      - "<gray>Upgrades are paid from your bank."
+
+  back:
+    slot: 31
+    material: ARROW
+    name: "<gray>Back"
+    action: back

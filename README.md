@@ -59,11 +59,17 @@ the **Reload All Gradle Projects** button (circular arrows) at the top of the Gr
 The first run of each server stops to ask you to accept the Minecraft EULA: set `eula=true` in
 `run/<server>/eula.txt` and run the task again. Stop a server by typing `stop` in its console.
 
-## Commands (0.3.1)
+## Commands (0.4.0)
+
+With `menus.open-from-commands: true` (the default), `/bank`, `/bank deposit`, `/bank withdraw`,
+`/bank pay`, `/bank tiers` and `/bank history` open menus when typed on their own. The menus are in
+`plugins/dkBank/menus/`.
+
 
 | Command | Permission (default) |
 |---|---|
-| `/bank`, `/bank balance` | `dkbank.use` (everyone) |
+| `/bank`, `/bank menu` | `dkbank.use` (everyone): the bank menu |
+| `/bank balance` | `dkbank.use` (everyone): balance in chat |
 | `/bank deposit <amount>` | `dkbank.deposit` (everyone) |
 | `/bank withdraw <amount>` | `dkbank.withdraw` (everyone) |
 | `/bank pay <player> <amount>` | `dkbank.pay` (everyone) |
@@ -75,6 +81,8 @@ The first run of each server stops to ask you to accept the Minecraft EULA: set 
 | `/bank admin give\|take\|set <player> <amount>` | `dkbank.admin.give` / `.take` / `.set` (op) |
 | `/bank admin history <player> [page]` | `dkbank.admin.history` (op) |
 | `/bank admin tier <player> <tier\|default>` | `dkbank.admin.tier` (op) |
+| `/bank admin alts <player> [allow\|reset]` | `dkbank.admin.alts` (op) |
+| *(never locked by the alt limit)* | `dkbank.alts.bypass` (op) |
 | *(a tier from a rank)* | `dkbank.tier.<name>`, e.g. `dkbank.tier.gold` (nobody, not even ops) |
 | `/bank admin reload` | `dkbank.admin.reload` (op) |
 

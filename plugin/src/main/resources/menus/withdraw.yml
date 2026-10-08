@@ -1,0 +1,97 @@
+# ============================================================
+#  dkBank menu: withdraw (/bank withdraw)
+#  Item settings and the actions open, back, close and command: see main.yml.
+#  Here also: amount:<amount> (e.g. amount:all, amount:half, amount:5k) and custom (type it in chat).
+#
+#  presets: amounts shown in slots.presets, using the "preset" template, or "preset-unavailable"
+#  when the bank doesn't have that much. In those, <amount> is the preset.
+#  Values: those in main.yml, plus <min> and <fee> (withdrawal fee, percent).
+# ============================================================
+
+title: "<gradient:#D4A017:#A67C00><bold>dkBank</bold></gradient> <dark_gray>· Withdraw"
+rows: 5
+
+sounds:
+  open: "item.book.page_turn"
+  click: "ui.button.click"
+  success: "entity.experience_orb.pickup"
+  error: "entity.villager.no"
+
+fill:
+  material: BLACK_STAINED_GLASS_PANE
+  hide-tooltip: true
+border:
+  material: GRAY_STAINED_GLASS_PANE
+  hide-tooltip: true
+
+presets: ["100", "1k", "10k", "100k", "1m"]
+slots:
+  presets: [20, 21, 22, 23, 24]
+
+templates:
+  preset:
+    material: ORANGE_DYE
+    name: "<gold>Withdraw <white><amount>"
+    lore:
+      - "<gray>Balance: <white><balance>"
+      - ""
+      - "<yellow>» Click to withdraw"
+  preset-unavailable:
+    material: GRAY_DYE
+    name: "<gray>Withdraw <amount>"
+    lore:
+      - "<red>Not enough in the bank"
+      - "<gray>Balance: <white><balance>"
+
+items:
+  accents:
+    slots: [0, 8, 36, 44]
+    material: YELLOW_STAINED_GLASS_PANE
+    hide-tooltip: true
+
+  balance:
+    slot: 4
+    material: GOLD_BLOCK
+    glow: true
+    name: "<gradient:#F5C542:#D4A017><bold>Bank balance</bold></gradient>"
+    lore:
+      - "<white><bold><balance></bold>"
+      - ""
+      - "<gray>Wallet: <white><wallet>"
+      - "<gray>Withdrawal fee: <white><fee>%"
+
+  half:
+    slot: 29
+    material: GOLD_NUGGET
+    name: "<gold>Withdraw half"
+    lore:
+      - "<gray>Half of your bank balance"
+      - ""
+      - "<yellow>» Click to withdraw"
+    action: "amount:half"
+
+  custom:
+    slot: 31
+    material: OAK_SIGN
+    name: "<yellow>Type an amount"
+    lore:
+      - "<gray>Type it in chat, like"
+      - "<white>2500<gray>, <white>1.5k<gray> or <white>2m"
+    action: custom
+
+  all:
+    slot: 33
+    material: GOLD_INGOT
+    name: "<gold>Withdraw everything"
+    lore:
+      - "<gray>Your whole balance:"
+      - "<white><balance>"
+      - ""
+      - "<yellow>» Click to withdraw"
+    action: "amount:all"
+
+  back:
+    slot: 40
+    material: ARROW
+    name: "<gray>Back"
+    action: back

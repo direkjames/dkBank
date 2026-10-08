@@ -1,0 +1,177 @@
+# ============================================================
+#  dkBank menu: main (/bank)
+#  Run /bank admin reload after editing.
+#
+#  Items: material, name, lore (MiniMessage), glow, amount, hide-tooltip, head (viewer),
+#  slot or slots (0 is top left; a row has 9), action or actions, permission (hides the item).
+#  Custom heads: texture: "<Value from minecraft-heads.com>" (material can be left out), or
+#  material: "head:<Value>". A textures.minecraft.net link or just the texture id works too.
+#  Actions: open:<menu> (deposit, withdraw, transfer, history, tiers, main), back, close,
+#           command:<command>, and here: upgrade (asks to confirm the next tier)
+#  PlaceholderAPI placeholders work in names and lore.
+#
+#  Values: <player> <balance> <wallet> <tier> <tier-icon> <max-balance> <room> (space left) <cap>
+#          <online-rate> <offline-rate> <online-period> <offline-period> <earning> (earning interest now)
+#          <next-payout> <payout-progress> <next-tier> <next-cost>
+# ============================================================
+
+title: "<gradient:#D4A017:#A67C00><bold>dkBank</bold></gradient> <dark_gray>· Your bank"
+rows: 6
+
+sounds:
+  open: "item.book.page_turn"
+  click: "ui.button.click"
+  success: "entity.experience_orb.pickup"
+  error: "entity.villager.no"
+
+fill:
+  material: BLACK_STAINED_GLASS_PANE
+  hide-tooltip: true
+border:
+  material: GRAY_STAINED_GLASS_PANE
+  hide-tooltip: true
+
+items:
+  accents:
+    slots: [0, 8, 45, 53]
+    material: YELLOW_STAINED_GLASS_PANE
+    hide-tooltip: true
+
+  profile:
+    slot: 4
+    material: PLAYER_HEAD
+    head: viewer
+    name: "<gradient:#F5C542:#D4A017><bold><player></bold></gradient>"
+    lore:
+      - "<gray>Tier: <tier>"
+      - "<gray>Wallet: <white><wallet>"
+
+  # Only shown when the alt-account limit locks this player's bank. <max> isn't available here.
+  alt-locked:
+    slot: 13
+    material: RED_STAINED_GLASS_PANE
+    glow: true
+    name: "<red><bold>Bank locked"
+    lore:
+      - "<gray>Too many accounts play from"
+      - "<gray>your connection, so this one"
+      - "<gray>can't use the bank."
+      - ""
+      - "<gray>Ask staff if this is a mistake."
+
+  tier:
+    slot: 20
+    material: "<tier-icon>"
+    name: "<gray>Tier: <tier>"
+    lore:
+      - "<gray>Holds up to <white><max-balance>"
+      - "<gray>Room left: <white><room>"
+      - "<gray>Interest on up to <white><cap>"
+      - ""
+      - "<yellow>» Click to see all tiers"
+    action: "open:tiers"
+    permission: dkbank.tiers
+
+  balance:
+    slot: 22
+    material: GOLD_BLOCK
+    glow: true
+    name: "<gradient:#F5C542:#D4A017><bold>Bank balance</bold></gradient>"
+    lore:
+      - "<white><bold><balance></bold>"
+      - ""
+      - "<gray>Wallet: <white><wallet>"
+
+  interest:
+    slot: 24
+    material: CLOCK
+    name: "<gold><bold>Interest</bold>"
+    lore:
+      - "<gray>Online: <green><online-rate>%</green> per <white><online-period></white> played"
+      - "<gray>Offline & AFK: <green><offline-rate>%</green> per <white><offline-period>"
+      - ""
+      - "<gray>Earning on: <white><earning>"
+      - "<gray>(lowest balance since your last"
+      - "<gray>payout, up to <cap>)"
+      - ""
+      - "<gray>Next payout in <white><next-payout></white> of play"
+
+  upgrade:
+    slot: 31
+    material: NETHER_STAR
+    glow: true
+    name: "<gradient:#7DF9FF:#3A8DFF><bold>Upgrade your bank</bold></gradient>"
+    lore:
+      - "<gray>Next tier: <next-tier>"
+      - "<gray>Cost: <white><next-cost></white> <gray>(from your bank)"
+      - ""
+      - "<yellow>» Click to upgrade"
+    action: upgrade
+    permission: dkbank.upgrade
+  # Shown instead of "upgrade" at the highest tier you can buy
+  upgrade-max:
+    slot: 31
+    material: NETHER_STAR
+    name: "<gray>Upgrade your bank"
+    lore:
+      - "<gray>You have the highest tier"
+      - "<gray>you can buy."
+    action: "open:tiers"
+    permission: dkbank.tiers
+
+  deposit:
+    slot: 37
+    material: EMERALD
+    name: "<green><bold>Deposit</bold>"
+    lore:
+      - "<gray>Wallet → bank"
+      - "<gray>Wallet: <white><wallet>"
+      - ""
+      - "<yellow>» Click to deposit"
+    action: "open:deposit"
+    permission: dkbank.deposit
+
+  withdraw:
+    slot: 39
+    material: GOLD_INGOT
+    name: "<gold><bold>Withdraw</bold>"
+    lore:
+      - "<gray>Bank → wallet"
+      - "<gray>Balance: <white><balance>"
+      - ""
+      - "<yellow>» Click to withdraw"
+    action: "open:withdraw"
+    permission: dkbank.withdraw
+
+  transfer:
+    slot: 41
+    material: WRITABLE_BOOK
+    name: "<aqua><bold>Send money</bold>"
+    lore:
+      - "<gray>To another player's bank"
+      - ""
+      - "<yellow>» Click to choose a player"
+    action: "open:transfer"
+    permission: dkbank.pay
+
+  history:
+    slot: 43
+    material: BOOK
+    name: "<white><bold>History</bold>"
+    lore:
+      - "<gray>Your transactions"
+      - ""
+      - "<yellow>» Click to view"
+    action: "open:history"
+    permission: dkbank.history
+
+  close:
+    slot: 49
+    material: BARRIER
+    name: "<red>Close"
+    action: close
+
+texts:
+  loading: "…"
+  # <next-tier> at the top
+  no-next-tier: "<gray>none, you're at the top"

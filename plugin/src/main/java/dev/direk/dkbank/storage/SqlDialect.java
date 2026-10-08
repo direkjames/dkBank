@@ -36,6 +36,12 @@ public enum SqlDialect {
         }
 
         @Override
+        String upsertIp(String p) {
+            return "INSERT INTO " + p + "ips (ip_hash, uuid, first_seen, last_seen) VALUES (?, ?, ?, ?) "
+                    + "ON CONFLICT(ip_hash, uuid) DO UPDATE SET last_seen = excluded.last_seen";
+        }
+
+        @Override
         String forUpdate() {
             return ""; // SQLite transactions lock the whole database (dkBank opens them as IMMEDIATE)
         }
@@ -72,6 +78,12 @@ public enum SqlDialect {
         }
 
         @Override
+        String upsertIp(String p) {
+            return "INSERT INTO " + p + "ips (ip_hash, uuid, first_seen, last_seen) VALUES (?, ?, ?, ?) "
+                    + "ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen)";
+        }
+
+        @Override
         String forUpdate() {
             return " FOR UPDATE"; // lock the rows until the transaction ends
         }
@@ -82,6 +94,9 @@ public enum SqlDialect {
 
     /** Creates an account, or updates the stored name of an existing one. */
     abstract String upsertAccount(String prefix);
+
+    /** Records that an account logged in from an address (by hash), or updates when it last did. */
+    abstract String upsertIp(String prefix);
 
     /** Case-insensitive name match. */
     abstract String nameEquals();

@@ -86,15 +86,23 @@ double-pay or skip a payout, and offline accounts cost nothing.
 - ☑ Tier shown in `/bank`, `/bank interest` and the history
 - ☑ `0.3.1`: lighter (light gray) tier messages, rates shown in `/bank tiers`, decimal rates (0.5%, 1.25%) documented and tested
 
-## Phase 4 · GUIs — `0.4.0`
+## Phase 4 · GUIs — `0.4.0` ☑
 
-- ☐ Main menu: balance, wallet, tier, current rates, next payout, quick actions
-- ☐ Deposit and withdraw menus with preset amounts (configurable) and a custom amount
-- ☐ Custom amount input by chat prompt (works on every supported version)
-- ☐ Transfer menu, upgrades menu, paged history
-- ☐ Every menu editable in `menus/*.yml`: layout, items, names, lore, sounds
-- ☐ Premium touches: click sounds, balance animations on deposit, fill and border items, consistent theme
-- ☐ Works with Bedrock players through Geyser (chest menus are supported)
+- ☑ Main menu: balance, wallet, tier, rates, earning base, live next-payout countdown, quick actions
+- ☑ Deposit and withdraw menus with preset amounts (configurable), half, all and a typed amount
+- ☑ Typed amounts and names by chat prompt (hidden from chat, cancel word, timeout)
+- ☑ Transfer menu (online players' heads, paged, or type any name), tiers menu with upgrade
+  confirmation, paged history
+- ☑ Every menu editable in `menus/*.yml`: layout, items, names, lore, sounds, actions, permissions,
+  PlaceholderAPI placeholders
+- ☑ Premium touches: gold theme, click/success/error sounds, the balance counts up or down after
+  every change, fill, border and accent items
+- ☑ Safe: every click cancelled, double clicks ignored, one operation at a time, menu items tagged
+  and removed if they ever leave a menu, menus closed when the plugin stops
+- ☑ Bedrock players through Geyser: chest menus and chat prompts both work
+- ☑ Custom heads from minecraft-heads.com (Value, texture link or id) for any menu item or tier icon
+- ☑ Alt-account limit: only the first N accounts per connection can use the bank (salted IP hashes,
+  local addresses ignored, staff can allow accounts, `dkbank.alts.bypass`, `/bank admin alts`)
 
 ## Phase 5 · Integrations and admin tools — `0.5.0`
 

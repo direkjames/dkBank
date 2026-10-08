@@ -47,8 +47,13 @@ public final class BankCommand {
     public LiteralCommandNode<CommandSourceStack> build() {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(NAME)
                 .requires(perm("dkbank.use"))
-                .executes(this::overview)
+                .executes(ctx -> menuOr(ctx, "main", () -> overview(ctx)))
                 .then(Commands.literal("help").executes(this::help))
+                .then(Commands.literal("menu").executes(ctx -> {
+                    Player player = player(ctx);
+                    if (player != null) plugin.menus().open("main", player);
+                    return Command.SINGLE_SUCCESS;
+                }))
                 .then(Commands.literal("balance")
                         .executes(this::overview)
                         .then(player("player").requires(perm("dkbank.balance.others"))
@@ -57,13 +62,16 @@ public final class BankCommand {
                                     return Command.SINGLE_SUCCESS;
                                 })))
                 .then(Commands.literal("deposit").requires(perm("dkbank.deposit"))
+                        .executes(ctx -> menuOr(ctx, "deposit", () -> usage(ctx, "/bank deposit <amount>")))
                         .then(amount().executes(ctx -> playerAmount(ctx, bank()::deposit))))
                 .then(Commands.literal("withdraw").requires(perm("dkbank.withdraw"))
+                        .executes(ctx -> menuOr(ctx, "withdraw", () -> usage(ctx, "/bank withdraw <amount>")))
                         .then(amount().executes(ctx -> playerAmount(ctx, bank()::withdraw))))
                 .then(Commands.literal("pay").requires(perm("dkbank.pay"))
+                        .executes(ctx -> menuOr(ctx, "transfer", () -> usage(ctx, "/bank pay <player> <amount>")))
                         .then(player("player").then(amount().executes(this::pay))))
                 .then(Commands.literal("history").requires(perm("dkbank.history"))
-                        .executes(ctx -> history(ctx, 1))
+                        .executes(ctx -> menuOr(ctx, "history", () -> history(ctx, 1)))
                         .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                 .executes(ctx -> history(ctx, IntegerArgumentType.getInteger(ctx, "page")))))
                 .then(Commands.literal("interest").requires(perm("dkbank.interest"))
@@ -73,11 +81,11 @@ public final class BankCommand {
                             return Command.SINGLE_SUCCESS;
                         }))
                 .then(Commands.literal("tiers").requires(perm("dkbank.tiers"))
-                        .executes(ctx -> {
+                        .executes(ctx -> menuOr(ctx, "tiers", () -> {
                             Player player = player(ctx);
                             if (player != null) plugin.tiers().showTiers(player);
                             return Command.SINGLE_SUCCESS;
-                        }))
+                        })))
                 .then(Commands.literal("upgrade").requires(perm("dkbank.upgrade"))
                         .executes(ctx -> {
                             Player player = player(ctx);
@@ -101,6 +109,7 @@ public final class BankCommand {
                         || src.getSender().hasPermission("dkbank.admin.set")
                         || src.getSender().hasPermission("dkbank.admin.history")
                         || src.getSender().hasPermission("dkbank.admin.tier")
+                        || src.getSender().hasPermission("dkbank.admin.alts")
                         || src.getSender().hasPermission("dkbank.admin.reload"))
                 .executes(this::help)
                 .then(Commands.literal("give").requires(perm("dkbank.admin.give"))
@@ -136,10 +145,38 @@ public final class BankCommand {
                                             StringArgumentType.getString(ctx, "tier"));
                                     return Command.SINGLE_SUCCESS;
                                 }))))
+                .then(Commands.literal("alts").requires(perm("dkbank.admin.alts"))
+                        .then(player("player")
+                                .executes(ctx -> {
+                                    bank().adminAlts(sender(ctx), StringArgumentType.getString(ctx, "player"));
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                                .then(Commands.literal("allow").executes(ctx -> {
+                                    bank().adminAltExempt(sender(ctx), StringArgumentType.getString(ctx, "player"), true);
+                                    return Command.SINGLE_SUCCESS;
+                                }))
+                                .then(Commands.literal("reset").executes(ctx -> {
+                                    bank().adminAltExempt(sender(ctx), StringArgumentType.getString(ctx, "player"), false);
+                                    return Command.SINGLE_SUCCESS;
+                                }))))
                 .then(Commands.literal("reload").requires(perm("dkbank.admin.reload")).executes(this::reload));
     }
 
     // ------------------------------------------------------------------ executors
+
+    /** Opens a menu for players when menus.open-from-commands is on; otherwise runs the chat version. */
+    private int menuOr(CommandContext<CommandSourceStack> ctx, String menu, java.util.function.IntSupplier chat) {
+        if (sender(ctx) instanceof Player player && bank().settings().menus().openFromCommands()) {
+            plugin.menus().open(menu, player);
+            return Command.SINGLE_SUCCESS;
+        }
+        return chat.getAsInt();
+    }
+
+    private int usage(CommandContext<CommandSourceStack> ctx, String usage) {
+        bank().messages().send(sender(ctx), "usage", Map.of("usage", usage));
+        return 0;
+    }
 
     private int overview(CommandContext<CommandSourceStack> ctx) {
         if (sender(ctx) instanceof Player player) {

@@ -1,0 +1,94 @@
+# ============================================================
+#  dkBank menu: transfer (/bank pay)
+#  Item settings and the actions open, back, close and command: see main.yml.
+#  Here also: previous, next (pages) and type-name (type any player's name in chat).
+#  Fixed items called previous / next only show when there's a page to go to; nobody-online only
+#  when no one else is online.
+#
+#  slots.players: where online players' heads go, using the "player" template
+#  (<target> is their name; head: target shows their skin). Clicking one asks for the amount in chat.
+#  Values: those in main.yml, plus <page> <pages> <online> <fee> (transfer fee, percent).
+# ============================================================
+
+title: "<gradient:#D4A017:#A67C00><bold>dkBank</bold></gradient> <dark_gray>· Send money"
+rows: 6
+
+sounds:
+  open: "item.book.page_turn"
+  click: "ui.button.click"
+  success: "entity.experience_orb.pickup"
+  error: "entity.villager.no"
+
+fill:
+  material: BLACK_STAINED_GLASS_PANE
+  hide-tooltip: true
+border:
+  material: GRAY_STAINED_GLASS_PANE
+  hide-tooltip: true
+
+slots:
+  players: [10-16, 19-25, 28-34, 37-43]
+
+templates:
+  player:
+    material: PLAYER_HEAD
+    head: target
+    name: "<white><bold><target>"
+    lore:
+      - "<gray>Send money to <white><target></white>'s bank"
+      - "<gray>Fee: <white><fee>%"
+      - ""
+      - "<yellow>» Click, then type the amount"
+
+items:
+  accents:
+    slots: [0, 8, 45, 53]
+    material: YELLOW_STAINED_GLASS_PANE
+    hide-tooltip: true
+
+  info:
+    slot: 4
+    material: WRITABLE_BOOK
+    name: "<aqua><bold>Send money</bold>"
+    lore:
+      - "<gray>Pick a player, or type a name."
+      - "<gray>Your balance: <white><balance>"
+
+  nobody-online:
+    slot: 22
+    material: GRAY_DYE
+    name: "<gray>Nobody else is online"
+    lore:
+      - "<gray>Use <white>Type a name</white> below to send"
+      - "<gray>to someone who's offline."
+
+  back:
+    slot: 45
+    material: ARROW
+    name: "<gray>Back"
+    action: back
+
+  previous:
+    slot: 48
+    material: SPECTRAL_ARROW
+    name: "<yellow>« Previous page"
+    lore:
+      - "<gray>Page <page> of <pages>"
+    action: previous
+
+  type-name:
+    slot: 49
+    material: NAME_TAG
+    name: "<yellow>Type a name"
+    lore:
+      - "<gray>For players who aren't online,"
+      - "<gray>or to find someone quickly."
+    action: type-name
+
+  next:
+    slot: 50
+    material: SPECTRAL_ARROW
+    name: "<yellow>Next page »"
+    lore:
+      - "<gray>Page <page> of <pages>"
+    action: next

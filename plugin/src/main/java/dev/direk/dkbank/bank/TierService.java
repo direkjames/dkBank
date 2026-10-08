@@ -110,19 +110,51 @@ public final class TierService {
             offer(player);
             return;
         }
-        if (bank.isBusy(player)) return;
+        purchase(player, current, next, offer.expectedBought(), BankService.Outcome.NONE);
+    }
 
+    /**
+     * Buys the next tier straight away, for menus that asked for confirmation themselves.
+     *
+     * @param tierId the tier the player confirmed, and {@code cost} the price they saw; if either changed
+     *               (e.g. tiers.yml was reloaded), nothing is bought
+     */
+    public void buy(Player player, String tierId, BigDecimal cost, BankService.Outcome done) {
+        Tier current = bank.tierOf(player);
+        Tier next = bank.tiers().nextBuyable(current).orElse(null);
+        if (next == null || !next.id().equals(tierId) || next.cost().compareTo(cost) != 0) {
+            bank.send(player, "upgrade.changed");
+            done.finish(false);
+            return;
+        }
+        purchase(player, current, next, bank.boughtTier(player.getUniqueId()), done);
+    }
+
+    private void purchase(Player player, Tier current, Tier next, @Nullable String expectedBought,
+                          BankService.Outcome done) {
+        if (bank.isBusy(player)) {
+            done.finish(false);
+            return;
+        }
+        if (bank.locked(player)) {
+            bank.sendLocked(player);
+            done.finish(false);
+            return;
+        }
+        UUID uuid = player.getUniqueId();
         String name = player.getName();
         bank.markBusy(uuid);
         bank.async(() -> {
             bank.ensure(uuid, name);
-            return bank.store().upgrade(uuid, offer.expectedBought(), next.id(), next.cost());
+            return bank.store().upgrade(uuid, expectedBought, next.id(), next.cost());
         }, result -> {
             bank.clearBusy(uuid);
             upgraded(player, next, current, result);
+            done.finish(result.ok());
         }, error -> {
             bank.clearBusy(uuid);
             bank.fail(player, "upgrade", error);
+            done.finish(false);
         });
     }
 
@@ -206,8 +238,8 @@ public final class TierService {
 
     // ------------------------------------------------------------------ helpers
 
-    /** Values describing a tier, for messages. */
-    private Map<String, String> details(Tier tier) {
+    /** Values describing a tier, for messages and menus. */
+    public Map<String, String> details(Tier tier) {
         Messages m = bank.messages();
         InterestPlan plan = tier.plan();
         Map<String, String> v = new HashMap<>();

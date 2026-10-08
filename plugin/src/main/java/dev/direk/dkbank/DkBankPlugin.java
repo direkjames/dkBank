@@ -8,6 +8,7 @@ import dev.direk.dkbank.config.ConfigFile;
 import dev.direk.dkbank.config.Messages;
 import dev.direk.dkbank.config.Settings;
 import dev.direk.dkbank.economy.Wallet;
+import dev.direk.dkbank.gui.MenuManager;
 import dev.direk.dkbank.interest.InterestService;
 import dev.direk.dkbank.listener.AccountListener;
 import dev.direk.dkbank.storage.BankStore;
@@ -36,6 +37,7 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
     private @Nullable BankService bank;
     private @Nullable InterestService interest;
     private @Nullable TierService tierService;
+    private @Nullable MenuManager menus;
 
     /** Settings that moved out of config.yml, and where to. */
     private static final Map<String, String> MOVED = Map.of(
@@ -83,6 +85,16 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
         getServer().getPluginManager().registerEvents(interest, this);
         interest.start();
 
+        // Logins older than the alt limit remembers are of no use: forget them.
+        long forgetBefore = System.currentTimeMillis() - settings.alts().windowMillis();
+        bank.query("forget old login addresses", () -> store.pruneIps(forgetBefore), removed -> {
+            if (removed > 0) getLogger().info("Forgot " + removed + " old login addresses.");
+        });
+
+        menus = new MenuManager(this, bank, tierService, interest);
+        menus.load();
+        menus.register();
+
         BankCommand command = new BankCommand(this);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(command.build(), "dkBank: your bank account", settings.aliases()));
@@ -92,6 +104,7 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
 
     @Override
     public void onDisable() {
+        if (menus != null) menus.closeAll(); // menu items must never stay in a player's hands
         if (interest != null) interest.shutdown(); // pays everyone's unfinished interest cycle
         if (bank != null) bank.shutdown(); // finishes everything in progress, refunds included
         if (database != null) database.close();
@@ -108,6 +121,7 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
             tiers = bank().tiers();
         }
         bank().reload(settings, messages, tiers);
+        menus().load();
     }
 
     /** Reads tiers.yml and registers each tier's permission. Null if the file has a mistake. */
@@ -144,6 +158,11 @@ public final class DkBankPlugin extends JavaPlugin implements DkBankAPI {
     public BankService bank() {
         if (bank == null) throw new IllegalStateException("dkBank isn't enabled");
         return bank;
+    }
+
+    public MenuManager menus() {
+        if (menus == null) throw new IllegalStateException("dkBank isn't enabled");
+        return menus;
     }
 
     public TierService tiers() {

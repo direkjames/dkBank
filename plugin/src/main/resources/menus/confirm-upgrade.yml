@@ -1,0 +1,64 @@
+# ============================================================
+#  dkBank menu: confirm an upgrade
+#  Item settings and the actions open, back, close and command: see main.yml.
+#  Here also: confirm (buys the tier). back returns to the tiers menu.
+#  Fixed items: "confirm" shows while the player can pay, "not-enough" while they can't.
+#
+#  Values: the new tier's <tier> <icon> <cost> <max-balance> <cap> <online-rate> <offline-rate>
+#  <online-period> <offline-period>, plus <current> (their tier now), <balance> and <missing>.
+# ============================================================
+
+title: "<gradient:#D4A017:#A67C00><bold>dkBank</bold></gradient> <dark_gray>· Confirm upgrade"
+rows: 3
+
+sounds:
+  open: "item.book.page_turn"
+  click: "ui.button.click"
+  success: "ui.toast.challenge_complete"
+  error: "entity.villager.no"
+
+fill:
+  material: BLACK_STAINED_GLASS_PANE
+  hide-tooltip: true
+border:
+  material: GRAY_STAINED_GLASS_PANE
+  hide-tooltip: true
+
+items:
+  confirm:
+    slot: 11
+    material: LIME_CONCRETE
+    name: "<green><bold>Upgrade for <cost>"
+    lore:
+      - "<gray>Paid from your bank balance"
+      - "<gray>(<white><balance></white>)."
+      - ""
+      - "<yellow>» Click to confirm"
+    action: confirm
+
+  not-enough:
+    slot: 11
+    material: GRAY_CONCRETE
+    name: "<red>Not enough in the bank"
+    lore:
+      - "<gray>Costs <white><cost></white>, you have <white><balance></white>."
+      - "<gray>You need <white><missing></white> more."
+
+  tier:
+    slot: 13
+    material: "<icon>"
+    glow: true
+    name: "<current> <gray>→ <tier>"
+    lore:
+      - "<gray>Holds up to <white><max-balance>"
+      - "<gray>Interest on up to <white><cap>"
+      - "<gray>Online: <green><online-rate>%</green> per <online-period>"
+      - "<gray>Offline: <green><offline-rate>%</green> per <offline-period>"
+
+  cancel:
+    slot: 15
+    material: RED_CONCRETE
+    name: "<red><bold>Cancel"
+    lore:
+      - "<gray>Back to the tiers"
+    action: back

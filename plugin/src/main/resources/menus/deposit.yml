@@ -1,0 +1,97 @@
+# ============================================================
+#  dkBank menu: deposit (/bank deposit)
+#  Item settings and the actions open, back, close and command: see main.yml.
+#  Here also: amount:<amount> (e.g. amount:all, amount:half, amount:5k) and custom (type it in chat).
+#
+#  presets: amounts shown in slots.presets, using the "preset" template, or "preset-unavailable"
+#  when the wallet doesn't have that much. In those, <amount> is the preset.
+#  Values: those in main.yml, plus <min>.
+# ============================================================
+
+title: "<gradient:#D4A017:#A67C00><bold>dkBank</bold></gradient> <dark_gray>· Deposit"
+rows: 5
+
+sounds:
+  open: "item.book.page_turn"
+  click: "ui.button.click"
+  success: "entity.experience_orb.pickup"
+  error: "entity.villager.no"
+
+fill:
+  material: BLACK_STAINED_GLASS_PANE
+  hide-tooltip: true
+border:
+  material: GRAY_STAINED_GLASS_PANE
+  hide-tooltip: true
+
+presets: ["100", "1k", "10k", "100k", "1m"]
+slots:
+  presets: [20, 21, 22, 23, 24]
+
+templates:
+  preset:
+    material: LIME_DYE
+    name: "<green>Deposit <white><amount>"
+    lore:
+      - "<gray>Wallet: <white><wallet>"
+      - ""
+      - "<yellow>» Click to deposit"
+  preset-unavailable:
+    material: GRAY_DYE
+    name: "<gray>Deposit <amount>"
+    lore:
+      - "<red>Not enough in your wallet"
+      - "<gray>Wallet: <white><wallet>"
+
+items:
+  accents:
+    slots: [0, 8, 36, 44]
+    material: YELLOW_STAINED_GLASS_PANE
+    hide-tooltip: true
+
+  balance:
+    slot: 4
+    material: GOLD_BLOCK
+    glow: true
+    name: "<gradient:#F5C542:#D4A017><bold>Bank balance</bold></gradient>"
+    lore:
+      - "<white><bold><balance></bold>"
+      - ""
+      - "<gray>Wallet: <white><wallet>"
+      - "<gray>Room left: <white><room>"
+
+  half:
+    slot: 29
+    material: GOLD_INGOT
+    name: "<green>Deposit half"
+    lore:
+      - "<gray>Half of your wallet"
+      - ""
+      - "<yellow>» Click to deposit"
+    action: "amount:half"
+
+  custom:
+    slot: 31
+    material: OAK_SIGN
+    name: "<yellow>Type an amount"
+    lore:
+      - "<gray>Type it in chat, like"
+      - "<white>2500<gray>, <white>1.5k<gray> or <white>2m"
+    action: custom
+
+  all:
+    slot: 33
+    material: GOLD_BLOCK
+    name: "<green>Deposit everything"
+    lore:
+      - "<gray>Your whole wallet:"
+      - "<white><wallet>"
+      - ""
+      - "<yellow>» Click to deposit"
+    action: "amount:all"
+
+  back:
+    slot: 40
+    material: ARROW
+    name: "<gray>Back"
+    action: back

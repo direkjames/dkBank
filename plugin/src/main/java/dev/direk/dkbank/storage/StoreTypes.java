@@ -120,6 +120,15 @@ public final class StoreTypes {
         }
     }
 
+    /**
+     * An account seen on an IP address, for the alt-account limit.
+     *
+     * @param firstSeen when it first logged in from that address
+     * @param exempt    staff allowed it, whatever the limit
+     */
+    public record AltAccount(UUID uuid, String name, long firstSeen, long lastSeen, boolean exempt) {
+    }
+
     /** Result of a transfer: the sender's side, plus the receiver's new balance. */
     public record TransferResult(Result sender, BigDecimal receiverBalance, String receiverName) {
     }

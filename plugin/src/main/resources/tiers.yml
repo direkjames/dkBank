@@ -16,7 +16,8 @@
 #
 #  Per tier:
 #    display-name    shown to players (MiniMessage)
-#    icon            item shown in menus (https://jd.papermc.io/paper/1.21.4/org/bukkit/Material.html)
+#    icon            item shown in menus (https://jd.papermc.io/paper/1.21.4/org/bukkit/Material.html),
+#                    or a custom head: "head:<Value from minecraft-heads.com>"
 #    upgrade-cost    price of upgrading to this tier
 #    buyable         false = only through the permission (it's skipped by /bank upgrade)
 #    max-balance     most money the bank can hold. 0 = no limit.

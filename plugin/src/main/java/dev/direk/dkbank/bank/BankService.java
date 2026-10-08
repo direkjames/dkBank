@@ -6,6 +6,7 @@ import dev.direk.dkbank.economy.Wallet;
 import dev.direk.dkbank.money.AmountInput;
 import dev.direk.dkbank.money.Money;
 import dev.direk.dkbank.storage.BankStore;
+import dev.direk.dkbank.storage.StoreTypes;
 import dev.direk.dkbank.storage.StoreTypes.Account;
 import dev.direk.dkbank.storage.StoreTypes.Entry;
 import dev.direk.dkbank.storage.StoreTypes.Failure;
@@ -28,9 +29,11 @@ import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 import java.math.BigDecimal;
+import java.net.InetAddress;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +64,15 @@ import java.util.logging.Level;
  */
 public final class BankService {
 
+    /** Told when a money operation is completely finished, and whether money moved. Main thread. */
+    @FunctionalInterface
+    public interface Outcome {
+        Outcome NONE = success -> {
+        };
+
+        void finish(boolean success);
+    }
+
     private final JavaPlugin plugin;
     private final BankStore store;
     private final Wallet wallet;
@@ -72,6 +84,7 @@ public final class BankService {
     private final Queue<Runnable> mainQueue = new ConcurrentLinkedQueue<>();
     private final Set<UUID> busy = new HashSet<>(); // main thread only
     private final Map<UUID, BigDecimal> balances = new ConcurrentHashMap<>();
+    private final AltGuard alts;
     /** Bought tier of loaded accounts ("" = the first tier). */
     private final Map<UUID, String> boughtTiers = new ConcurrentHashMap<>();
     /** Current tier of online players, bought or from a permission. Refreshed on the main thread. */
@@ -86,6 +99,7 @@ public final class BankService {
         this.settings = settings;
         this.messages = messages;
         this.tiers = tiers;
+        this.alts = new AltGuard(store, () -> this.settings, plugin.getLogger());
         AtomicInteger counter = new AtomicInteger();
         this.workers = Executors.newFixedThreadPool(threads, r -> {
             Thread t = new Thread(r, "dkBank-worker-" + counter.incrementAndGet());
@@ -123,6 +137,20 @@ public final class BankService {
         return tiers;
     }
 
+    public AltGuard alts() {
+        return alts;
+    }
+
+    /** Whether the alt-account limit locks this player's bank. Main thread. */
+    public boolean locked(Player player) {
+        return alts.isLocked(player);
+    }
+
+    /** Tells a locked player why. */
+    void sendLocked(CommandSender to) {
+        send(to, "alts.locked", vars("max", String.valueOf(settings.alts().maxPerAddress())));
+    }
+
     public BankStore store() {
         return store;
     }
@@ -143,8 +171,14 @@ public final class BankService {
 
     /** Called on the login thread: creates the account if needed and caches the balance. */
     public void loadAccount(UUID uuid, String name) {
+        loadAccount(uuid, name, null);
+    }
+
+    /** Like {@link #loadAccount(UUID, String)}, also checking the alt-account limit for the login address. */
+    public void loadAccount(UUID uuid, String name, @Nullable InetAddress address) {
         try {
             remember(store.ensureAccount(uuid, name));
+            if (address != null) alts.check(uuid, address);
         } catch (BankStore.StorageException e) {
             plugin.getLogger().log(Level.SEVERE, "Couldn't load " + name + "'s bank account", e);
         }
@@ -154,6 +188,7 @@ public final class BankService {
         balances.remove(uuid);
         boughtTiers.remove(uuid);
         onlineTiers.remove(uuid);
+        alts.forget(uuid);
     }
 
     private void remember(Account account) {
@@ -213,7 +248,20 @@ public final class BankService {
     // ------------------------------------------------------------------ deposit
 
     public void deposit(Player player, AmountInput input) {
-        if (!economyReady(player) || isBusy(player)) return;
+        deposit(player, input, Outcome.NONE);
+    }
+
+    /** @param done told whether the money moved, once everything is finished (main thread) */
+    public void deposit(Player player, AmountInput input, Outcome done) {
+        if (!startDeposit(player, input, done)) done.finish(false);
+    }
+
+    private boolean startDeposit(Player player, AmountInput input, Outcome done) {
+        if (!economyReady(player) || isBusy(player)) return false;
+        if (locked(player)) {
+            sendLocked(player);
+            return false;
+        }
         Settings s = settings;
         UUID uuid = player.getUniqueId();
 
@@ -230,27 +278,27 @@ public final class BankService {
         if (amount.signum() <= 0) {
             boolean full = max != null && cached != null && cached.compareTo(max) >= 0;
             send(player, full ? "bank-full" : "not-enough-wallet", vars("wallet", fmt(walletBalance), "room", fmt(Money.ZERO)));
-            return;
+            return false;
         }
         if (amount.compareTo(s.minAmount()) < 0) {
             send(player, "amount-too-small", vars("min", fmt(s.minAmount())));
-            return;
+            return false;
         }
         if (s.overTransactionLimit(amount)) {
             send(player, "amount-too-large", vars("max", fmt(s.maxPerTransaction())));
-            return;
+            return false;
         }
         if (amount.compareTo(walletBalance) > 0) {
             send(player, "not-enough-wallet", vars("wallet", fmt(walletBalance)));
-            return;
+            return false;
         }
         if (max != null && cached != null && cached.add(amount).compareTo(max) > 0) {
             send(player, "bank-full", vars("room", fmt(max.subtract(cached).max(Money.ZERO)), "limit", fmt(max)));
-            return;
+            return false;
         }
         if (!wallet.take(player, amount)) {
             send(player, "wallet-error");
-            return;
+            return false;
         }
 
         BigDecimal deposited = amount;
@@ -264,25 +312,42 @@ public final class BankService {
             if (result.ok()) {
                 balances.put(uuid, result.balance());
                 send(player, "deposit-success", vars("amount", fmt(deposited), "balance", fmt(result.balance())));
+                done.finish(true);
             } else {
                 refundWallet(uuid, deposited);
                 send(player, result.failure() == Failure.BALANCE_LIMIT ? "bank-full" : "error",
                         vars("room", fmt(max == null ? Money.ZERO : max.subtract(result.available()).max(Money.ZERO)),
                                 "limit", fmt(max == null ? Money.HARD_MAX : max)));
+                done.finish(false);
             }
         }, error -> {
             busy.remove(uuid);
             refundWallet(uuid, deposited);
             fail(player, "deposit", error);
+            done.finish(false);
         });
+        return true;
     }
 
     // ------------------------------------------------------------------ withdraw
 
     public void withdraw(Player player, AmountInput input) {
-        if (!economyReady(player) || isBusy(player)) return;
+        withdraw(player, input, Outcome.NONE);
+    }
+
+    /** @param done told whether the money moved, once everything is finished (main thread) */
+    public void withdraw(Player player, AmountInput input, Outcome done) {
+        if (!startWithdraw(player, input, done)) done.finish(false);
+    }
+
+    private boolean startWithdraw(Player player, AmountInput input, Outcome done) {
+        if (!economyReady(player) || isBusy(player)) return false;
+        if (locked(player) && !settings.alts().allowWithdraw()) {
+            sendLocked(player);
+            return false;
+        }
         Settings s = settings;
-        if (!checkFixedAmount(player, input, s)) return;
+        if (!checkFixedAmount(player, input, s)) return false;
 
         UUID uuid = player.getUniqueId();
         String name = player.getName();
@@ -296,23 +361,35 @@ public final class BankService {
             busy.remove(uuid);
             if (!result.ok()) {
                 sendFailure(player, result, s);
+                done.finish(false);
                 return;
             }
             balances.put(uuid, result.balance());
             BigDecimal received = result.amount().subtract(result.fee());
-            if (wallet.give(Bukkit.getOfflinePlayer(uuid), received)) {
+            boolean paid;
+            try {
+                paid = wallet.give(Bukkit.getOfflinePlayer(uuid), received);
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(Level.SEVERE, "The economy plugin failed to pay a withdrawal into a wallet", e);
+                paid = false;
+            }
+            if (paid) {
                 send(player, result.fee().signum() > 0 ? "withdraw-success-fee" : "withdraw-success",
                         vars("amount", fmt(result.amount()), "fee", fmt(result.fee()), "received", fmt(received),
                                 "balance", fmt(result.balance())));
+                done.finish(true);
             } else {
                 // The wallet refused the money: put all of it (fee included) back in the bank.
                 refundBank(uuid, result.amount());
                 send(player, "wallet-error");
+                done.finish(false);
             }
         }, error -> {
             busy.remove(uuid);
             fail(player, "withdraw", error);
+            done.finish(false);
         });
+        return true;
     }
 
     // ------------------------------------------------------------------ transfer
@@ -323,15 +400,28 @@ public final class BankService {
     }
 
     public void pay(Player player, String targetName, AmountInput input) {
+        pay(player, targetName, input, Outcome.NONE);
+    }
+
+    /** @param done told whether the money moved, once everything is finished (main thread) */
+    public void pay(Player player, String targetName, AmountInput input, Outcome done) {
+        if (!startPay(player, targetName, input, done)) done.finish(false);
+    }
+
+    private boolean startPay(Player player, String targetName, AmountInput input, Outcome done) {
         Settings s = settings;
         if (!s.transfersEnabled()) {
             send(player, "transfers-disabled");
-            return;
+            return false;
         }
-        if (isBusy(player) || !checkFixedAmount(player, input, s)) return;
+        if (isBusy(player) || !checkFixedAmount(player, input, s)) return false;
+        if (locked(player)) {
+            sendLocked(player);
+            return false;
+        }
         if (!s.offlineTransfers() && Bukkit.getPlayerExact(targetName) == null) {
             send(player, "target-offline", vars("player", targetName));
-            return;
+            return false;
         }
 
         UUID uuid = player.getUniqueId();
@@ -351,10 +441,12 @@ public final class BankService {
             busy.remove(uuid);
             if (outcome.status() == PayStatus.UNKNOWN) {
                 send(player, "unknown-player", vars("player", targetName));
+                done.finish(false);
                 return;
             }
             if (outcome.status() == PayStatus.SELF || outcome.transfer() == null || outcome.receiver() == null) {
                 send(player, "cannot-pay-self");
+                done.finish(false);
                 return;
             }
             TransferResult t = outcome.transfer();
@@ -362,6 +454,7 @@ public final class BankService {
             if (!r.ok()) {
                 if (r.failure() == Failure.BALANCE_LIMIT) send(player, "receiver-full", vars("player", t.receiverName()));
                 else sendFailure(player, r, s);
+                done.finish(false);
                 return;
             }
             balances.put(uuid, r.balance());
@@ -373,10 +466,13 @@ public final class BankService {
                 send(receiver, "pay-received", vars("amount", fmt(r.amount()), "player", name,
                         "balance", fmt(t.receiverBalance())));
             }
+            done.finish(true);
         }, error -> {
             busy.remove(uuid);
             fail(player, "transfer", error);
+            done.finish(false);
         });
+        return true;
     }
 
     // ------------------------------------------------------------------ balance and history
@@ -505,6 +601,65 @@ public final class BankService {
         send(sender, key, vars("player", account.name(), "amount", fmt(amount), "balance", fmt(r.balance())));
     }
 
+    // ------------------------------------------------------------------ alt accounts (admin)
+
+    private record AltView(Account account, List<StoreTypes.AltAccount> onAddress) {
+    }
+
+    /** Lists the accounts that share the player's most recent connection, and which are locked. */
+    public void adminAlts(CommandSender sender, String targetName) {
+        Settings s = settings;
+        long since = System.currentTimeMillis() - s.alts().windowMillis();
+        async(() -> store.accountByName(targetName).map(a -> new AltView(a,
+                        store.latestIp(a.uuid()).map(ip -> store.accountsOnIp(ip, since)).orElse(List.of()))),
+                view -> {
+                    if (view.isEmpty()) {
+                        send(sender, "unknown-player", vars("player", targetName));
+                        return;
+                    }
+                    List<StoreTypes.AltAccount> accounts = view.get().onAddress();
+                    String name = view.get().account().name();
+                    if (accounts.isEmpty() || !s.alts().enabled()) {
+                        send(sender, "admin.alts-none", vars("player", name));
+                        return;
+                    }
+                    send(sender, "admin.alts-header", vars("player", name, "count", String.valueOf(accounts.size()),
+                            "max", String.valueOf(s.alts().maxPerAddress()),
+                            "window", dev.direk.dkbank.util.TimeText.format(java.time.Duration.ofMillis(s.alts().windowMillis()))));
+                    for (StoreTypes.AltAccount a : accounts) {
+                        String status = a.exempt() ? "admin.alts-status-exempt"
+                                : AltRule.overLimit(accounts, a.uuid(), s.alts().maxPerAddress()) ? "admin.alts-status-locked"
+                                : "admin.alts-status-allowed";
+                        messages.send(sender, "admin.alts-entry", vars("name", a.name(),
+                                        "date", s.dateFormat().format(Instant.ofEpochMilli(a.firstSeen()))),
+                                Map.of("status", messages.raw(status)));
+                    }
+                }, error -> fail(sender, "alt list", error));
+    }
+
+    /** Allows an account whatever the alt limit, or makes it follow the limit again. */
+    public void adminAltExempt(CommandSender sender, String targetName, boolean exempt) {
+        Settings s = settings;
+        long since = System.currentTimeMillis() - s.alts().windowMillis();
+        async(() -> {
+            Optional<Account> account = store.accountByName(targetName);
+            if (account.isEmpty()) return Optional.<Account>empty();
+            store.setAltExempt(account.get().uuid(), exempt);
+            // An allowed account frees a place for the next one on the same connection: decide again for
+            // everyone online there.
+            store.latestIp(account.get().uuid()).ifPresent(ip -> {
+                for (StoreTypes.AltAccount a : store.accountsOnIp(ip, since)) {
+                    if (balances.containsKey(a.uuid())) alts.recheck(a.uuid());
+                }
+            });
+            if (balances.containsKey(account.get().uuid())) alts.recheck(account.get().uuid());
+            return account;
+        }, account -> {
+            if (account.isEmpty()) send(sender, "unknown-player", vars("player", targetName));
+            else send(sender, exempt ? "admin.alts-allowed" : "admin.alts-reset", vars("player", account.get().name()));
+        }, error -> fail(sender, "alt exemption", error));
+    }
+
     // ------------------------------------------------------------------ helpers
 
     public String fmt(BigDecimal amount) {
@@ -567,7 +722,14 @@ public final class BankService {
 
     private void refundWallet(UUID uuid, BigDecimal amount) {
         OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
-        if (!wallet.give(player, amount)) {
+        boolean refunded;
+        try {
+            refunded = wallet.give(player, amount);
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(Level.SEVERE, "The economy plugin failed during a refund", e);
+            refunded = false;
+        }
+        if (!refunded) {
             plugin.getLogger().severe("REFUND FAILED: couldn't return " + amount.toPlainString() + " to the wallet of "
                     + player.getName() + " (" + uuid + "). Give it back manually.");
         }
@@ -584,6 +746,11 @@ public final class BankService {
     void fail(CommandSender sender, String what, Throwable error) {
         plugin.getLogger().log(Level.SEVERE, "Bank " + what + " for " + sender.getName() + " failed", error);
         send(sender, "error");
+    }
+
+    /** Runs a read on a worker thread and hands the result to {@code done} on the main thread; errors are logged. */
+    public <T> void query(String what, Supplier<T> work, Consumer<T> done) {
+        async(work, done, error -> plugin.getLogger().log(Level.SEVERE, "Couldn't " + what, error));
     }
 
     /** Runs {@code work} on a worker thread, then {@code done} (or {@code failed}) on the main thread. */

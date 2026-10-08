@@ -37,8 +37,27 @@ public record Settings(
         DateTimeFormatter dateFormat,
         Interest interest,
         AfkDetection afk,
+        Menus menus,
+        Alts alts,
         Storage storage
 ) {
+
+    /**
+     * @param maxPerAddress  accounts from one connection that can use the bank
+     * @param windowMillis   logins older than this don't count
+     * @param allowWithdraw  locked accounts can still take their money out
+     * @param tellPlayer     tell locked players when they join
+     */
+    public record Alts(boolean enabled, int maxPerAddress, long windowMillis, boolean allowWithdraw, boolean tellPlayer) {
+    }
+
+    /**
+     * @param openFromCommands    /bank and its commands without arguments open menus instead of using chat
+     * @param inputSeconds        time to type an amount or name in chat
+     * @param cancelWord          typing this cancels
+     */
+    public record Menus(boolean openFromCommands, int inputSeconds, String cancelWord) {
+    }
 
     /**
      * @param template        periods and on/off switches; each tier in tiers.yml adds its rates and limits
@@ -165,6 +184,14 @@ public record Settings(
                 dates,
                 interest,
                 afk,
+                new Menus(c.getBoolean("menus.open-from-commands", true),
+                        Math.max(5, Math.min(300, c.getInt("menus.chat-input-seconds", 30))),
+                        c.getString("menus.cancel-word", "cancel").trim()),
+                new Alts(c.getBoolean("alt-limit.enabled", true),
+                        Math.max(1, c.getInt("alt-limit.max-accounts", 3)),
+                        check.duration(c, "alt-limit.remember", "30d", Duration.ofDays(1)),
+                        c.getBoolean("alt-limit.locked-can-withdraw", true),
+                        c.getBoolean("alt-limit.tell-player", true)),
                 storage);
     }
 

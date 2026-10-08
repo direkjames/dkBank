@@ -1,0 +1,95 @@
+# ============================================================
+#  dkBank menu: history
+#  Item settings and the actions open, back, close and command: see main.yml.
+#  Here also: previous, next (pages). Fixed items previous / next only show when there's a page to
+#  go to; empty only when there's no history yet.
+#
+#  slots.entries: where transactions go, newest first, using the "entry" template.
+#  Values in it: <line> (the line from messages.yml → history.types), <date>, <amount>, <fee>,
+#  <balance-after>, <other> (the other player or tier) and <material> (from materials below).
+#  Values everywhere: those in main.yml, plus <page> <pages> <total>.
+# ============================================================
+
+title: "<gradient:#D4A017:#A67C00><bold>dkBank</bold></gradient> <dark_gray>· History"
+rows: 6
+
+sounds:
+  open: "item.book.page_turn"
+  click: "ui.button.click"
+  success: "entity.experience_orb.pickup"
+  error: "entity.villager.no"
+
+fill:
+  material: BLACK_STAINED_GLASS_PANE
+  hide-tooltip: true
+border:
+  material: GRAY_STAINED_GLASS_PANE
+  hide-tooltip: true
+
+slots:
+  entries: [10-16, 19-25, 28-34, 37-43]
+
+# Item for each kind of transaction ("head:<Value from minecraft-heads.com>" for a custom head)
+materials:
+  deposit: LIME_DYE
+  withdraw: ORANGE_DYE
+  transfer-out: RED_DYE
+  transfer-in: LIGHT_BLUE_DYE
+  admin-give: NAME_TAG
+  admin-take: NAME_TAG
+  admin-set: NAME_TAG
+  refund: SLIME_BALL
+  interest: GOLD_NUGGET
+  upgrade: NETHER_STAR
+  tier-set: NAME_TAG
+  default: PAPER
+
+templates:
+  entry:
+    material: "<material>"
+    name: "<line>"
+    lore:
+      - "<gray><date>"
+      - "<gray>Balance after: <white><balance-after>"
+
+items:
+  accents:
+    slots: [0, 8, 45, 53]
+    material: YELLOW_STAINED_GLASS_PANE
+    hide-tooltip: true
+
+  info:
+    slot: 4
+    material: BOOK
+    name: "<white><bold>History</bold>"
+    lore:
+      - "<gray>Page <white><page></white> of <white><pages>"
+      - "<gray>Transactions: <white><total>"
+      - "<gray>Balance: <white><balance>"
+
+  empty:
+    slot: 22
+    material: GRAY_DYE
+    name: "<gray>No transactions yet"
+
+  back:
+    slot: 45
+    material: ARROW
+    name: "<gray>Back"
+    action: back
+
+  previous:
+    slot: 48
+    material: SPECTRAL_ARROW
+    name: "<yellow>« Newer"
+    lore:
+      - "<gray>Page <page> of <pages>"
+    action: previous
+
+  next:
+    slot: 50
+    material: SPECTRAL_ARROW
+    name: "<yellow>Older »"
+    lore:
+      - "<gray>Page <page> of <pages>"
+    action: next

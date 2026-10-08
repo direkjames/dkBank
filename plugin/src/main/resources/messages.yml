@@ -63,6 +63,8 @@ economy-missing: "<prefix><red>The bank is unavailable: no economy plugin was fo
 wallet-error: "<prefix><red>Your wallet couldn't be updated, so nothing was changed."
 error: "<prefix><red>Something went wrong and nothing was changed. Please tell a staff member."
 player-only: "<prefix><red>Only players can do that."
+# <usage>
+usage: "<prefix><gray>Use: <white><usage>"
 
 # ------------------------------------------------------------
 #  Interest
@@ -130,6 +132,27 @@ upgrade:
   changed: "<prefix><gray>Your tier just changed. Type <white>/bank upgrade</white> to see your next one."
 
 # ------------------------------------------------------------
+#  Alt-account limit. <max> is the number of accounts allowed per connection.
+# ------------------------------------------------------------
+alts:
+  locked: "<prefix><red>Your bank is locked: more than <max> accounts play from your connection. <gray>Ask staff if this is a mistake."
+  locked-notice: "<prefix><gray>Note: your bank is <red>locked</red> because more than <white><max></white> accounts play from your connection. Ask staff if this is a mistake."
+
+# ------------------------------------------------------------
+#  Menus
+#  Typing in chat: <cancel> (the cancel word) <seconds> (time allowed)
+# ------------------------------------------------------------
+menu:
+  no-permission: "<prefix><red>You don't have access to that."
+  input-deposit: "<prefix><gray>Type how much to <white>deposit</white> in chat (e.g. <white>2500</white>, <white>1.5k</white>, <white>all</white>), or <white><cancel></white>."
+  input-withdraw: "<prefix><gray>Type how much to <white>withdraw</white> in chat (e.g. <white>2500</white>, <white>1.5k</white>, <white>all</white>), or <white><cancel></white>."
+  input-pay-player: "<prefix><gray>Type the <white>name</white> of the player to send money to, or <white><cancel></white>."
+  # <target>
+  input-pay-amount: "<prefix><gray>Type how much to send to <white><target></white> (e.g. <white>2500</white>, <white>1.5k</white>), or <white><cancel></white>."
+  input-cancelled: "<prefix><gray>Cancelled."
+  input-timeout: "<prefix><gray>You didn't type anything in time, so nothing was done."
+
+# ------------------------------------------------------------
 #  History
 # ------------------------------------------------------------
 history:
@@ -164,7 +187,8 @@ history:
 help:
   player:
     - "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>— your bank account"
-    - " <gold>/bank</gold> <gray>your balance"
+    - " <gold>/bank</gold> <gray>your bank (menu)"
+    - " <gold>/bank balance</gold> <gray>your balance in chat"
     - " <gold>/bank deposit <amount></gold> <gray>wallet → bank"
     - " <gold>/bank withdraw <amount></gold> <gray>bank → wallet"
     - " <gold>/bank pay <player> <amount></gold> <gray>send to another player's bank"
@@ -179,6 +203,7 @@ help:
     - " <gold>/bank admin balance <player>"
     - " <gold>/bank admin history <player> [page]"
     - " <gold>/bank admin tier <player> <tier|default>"
+    - " <gold>/bank admin alts <player> [allow|reset]"
     - " <gold>/bank admin reload"
 
 # ------------------------------------------------------------
@@ -193,6 +218,16 @@ admin:
   take-insufficient: "<prefix><red><player> only has <balance> in the bank."
   # <player>
   limit: "<prefix><red>That would put <player>'s bank over the maximum."
+  # /bank admin alts. <player> <count> <max> <window>
+  alts-header: "<prefix><gray>Accounts on <white><player></white>'s latest connection (last <window>, limit <max>):"
+  # <name> <status> <date> (first seen there)
+  alts-entry: " <white><name></white> <gray>·</gray> <status> <gray>· first seen <date>"
+  alts-status-allowed: "<green>can use the bank"
+  alts-status-locked: "<red>locked"
+  alts-status-exempt: "<aqua>allowed by staff"
+  alts-none: "<prefix><gray>No logins recorded for <white><player></white> (or the alt limit is off)."
+  alts-allowed: "<prefix><green><player> can use the bank whatever the alt limit."
+  alts-reset: "<prefix><green><player> follows the alt limit again."
   # <player> <tier>
   tier-set: "<prefix><green>Set <white><player></white>'s bought tier to <tier><green>."
   # Their permission gives a higher tier than the one just set. <player> <tier>

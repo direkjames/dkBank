@@ -5,6 +5,7 @@ import dev.direk.dkbank.interest.InterestPlan;
 import dev.direk.dkbank.money.AmountInput;
 import dev.direk.dkbank.money.Money;
 import dev.direk.dkbank.storage.StoreTypes.Account;
+import dev.direk.dkbank.storage.StoreTypes.AltAccount;
 import dev.direk.dkbank.storage.StoreTypes.Entry;
 import dev.direk.dkbank.storage.StoreTypes.Beat;
 import dev.direk.dkbank.storage.StoreTypes.Failure;
@@ -45,7 +46,7 @@ import java.util.function.LongSupplier;
 public final class BankStore {
 
     /** Version of the table layout, stored in the meta table, for future migrations. */
-    public static final int SCHEMA_VERSION = 3;
+    public static final int SCHEMA_VERSION = 4;
 
     private final DataSource dataSource;
     private final SqlDialect dialect;
@@ -128,6 +129,13 @@ public final class BankStore {
                     "UPDATE " + p + "accounts SET interest_base = balance");
             // 0.3.0: bank tiers. tier: the bought tier's id, null for the first tier.
             case 3 -> List.of("ALTER TABLE " + p + "accounts ADD COLUMN tier VARCHAR(16) NULL");
+            // 0.4.0: alt-account limit. ips: which accounts logged in from which address (salted hashes,
+            // never the address itself). alt_exempt: staff allowed the account whatever the limit.
+            case 4 -> List.of(
+                    "CREATE TABLE IF NOT EXISTS " + p + "ips (ip_hash CHAR(64) NOT NULL, uuid CHAR(36) NOT NULL, "
+                            + "first_seen BIGINT NOT NULL, last_seen BIGINT NOT NULL, PRIMARY KEY (ip_hash, uuid))",
+                    "ALTER TABLE " + p + "accounts ADD COLUMN alt_exempt INT NOT NULL DEFAULT 0",
+                    "CREATE INDEX " + p + "ips_uuid ON " + p + "ips (uuid, last_seen)");
             default -> throw new IllegalStateException("No upgrade to table version " + version);
         };
     }
@@ -362,6 +370,115 @@ public final class BankStore {
             ps.setString(3, uuid.toString());
             ps.executeUpdate();
         }
+    }
+
+    // ------------------------------------------------------------------ alt accounts
+
+    /** The secret mixed into IP hashes, created once per database. */
+    public String ipSalt() {
+        try {
+            return transaction("create the IP salt", c -> {
+                String salt = readMeta(c, "ip_salt");
+                if (salt != null) return salt;
+                byte[] bytes = new byte[32];
+                new java.security.SecureRandom().nextBytes(bytes);
+                String created = java.util.HexFormat.of().formatHex(bytes);
+                try (PreparedStatement ps = c.prepareStatement("INSERT INTO " + p + "meta (meta_key, meta_value) VALUES ('ip_salt', ?)")) {
+                    ps.setString(1, created);
+                    ps.executeUpdate();
+                }
+                return created;
+            });
+        } catch (StorageException e) {
+            // Another server sharing the database created it at the same moment.
+            String salt = transaction("read the IP salt", c -> readMeta(c, "ip_salt"));
+            if (salt == null) throw e;
+            return salt;
+        }
+    }
+
+    private @Nullable String readMeta(Connection c, String key) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement("SELECT meta_value FROM " + p + "meta WHERE meta_key = ?")) {
+            ps.setString(1, key);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        }
+    }
+
+    /**
+     * Records a login from an address, then lists every account seen on it since {@code since}, in the
+     * order they first used it.
+     */
+    public List<AltAccount> recordLogin(UUID uuid, String ipHash, long since) {
+        return transaction("record a login address", c -> {
+            long now = clock.getAsLong();
+            try (PreparedStatement ps = c.prepareStatement(dialect.upsertIp(p))) {
+                ps.setString(1, ipHash);
+                ps.setString(2, uuid.toString());
+                ps.setLong(3, now);
+                ps.setLong(4, now);
+                ps.executeUpdate();
+            }
+            return accountsOnIp(c, ipHash, since);
+        });
+    }
+
+    /** Every account seen on an address since {@code since}, in the order they first used it. */
+    public List<AltAccount> accountsOnIp(String ipHash, long since) {
+        return transaction("list accounts on an address", c -> accountsOnIp(c, ipHash, since));
+    }
+
+    private List<AltAccount> accountsOnIp(Connection c, String ipHash, long since) throws SQLException {
+        List<AltAccount> result = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement("SELECT i.uuid, a.name, i.first_seen, i.last_seen, a.alt_exempt FROM "
+                + p + "ips i LEFT JOIN " + p + "accounts a ON a.uuid = i.uuid WHERE i.ip_hash = ? AND i.last_seen >= ? "
+                + "ORDER BY i.first_seen, i.uuid")) {
+            ps.setString(1, ipHash);
+            ps.setLong(2, since);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String name = rs.getString(2);
+                    result.add(new AltAccount(UUID.fromString(rs.getString(1)), name == null ? "?" : name,
+                            rs.getLong(3), rs.getLong(4), rs.getInt(5) != 0));
+                }
+            }
+        }
+        return result;
+    }
+
+    /** The address hash an account used most recently, if any. */
+    public Optional<String> latestIp(UUID uuid) {
+        return transaction("read a login address", c -> {
+            try (PreparedStatement ps = c.prepareStatement("SELECT ip_hash FROM " + p + "ips WHERE uuid = ? "
+                    + "ORDER BY last_seen DESC LIMIT 1")) {
+                ps.setString(1, uuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? Optional.of(rs.getString(1)) : Optional.<String>empty();
+                }
+            }
+        });
+    }
+
+    /** Lets an account use the bank whatever the alt limit (or stops that). @return false if no account */
+    public boolean setAltExempt(UUID uuid, boolean exempt) {
+        return transaction("change an alt exemption", c -> {
+            try (PreparedStatement ps = c.prepareStatement("UPDATE " + p + "accounts SET alt_exempt = ? WHERE uuid = ?")) {
+                ps.setInt(1, exempt ? 1 : 0);
+                ps.setString(2, uuid.toString());
+                return ps.executeUpdate() > 0;
+            }
+        });
+    }
+
+    /** Forgets logins older than {@code before}. @return how many were removed */
+    public int pruneIps(long before) {
+        return transaction("forget old login addresses", c -> {
+            try (PreparedStatement ps = c.prepareStatement("DELETE FROM " + p + "ips WHERE last_seen < ?")) {
+                ps.setLong(1, before);
+                return ps.executeUpdate();
+            }
+        });
     }
 
     // ------------------------------------------------------------------ interest
