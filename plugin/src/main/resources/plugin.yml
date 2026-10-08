@@ -5,4 +5,61 @@ api-version: '1.21.4'
 author: Direk
 description: A premium bank with separate online and offline interest.
 folia-supported: false
-softdepend: [Vault, PlaceholderAPI]
+# Economy plugins are listed so they load first: dkBank needs them when the server stops, to finish refunds.
+softdepend: [Vault, Essentials, CMI, PlaceholderAPI]
+
+# Commands are registered with Paper's Brigadier API in code.
+
+permissions:
+  dkbank.use:
+    description: Use /bank and see your own balance.
+    default: true
+    children:
+      dkbank.deposit: true
+      dkbank.withdraw: true
+      dkbank.pay: true
+      dkbank.history: true
+      dkbank.interest: true
+  dkbank.deposit:
+    description: Deposit money into the bank.
+    default: true
+  dkbank.withdraw:
+    description: Withdraw money from the bank.
+    default: true
+  dkbank.pay:
+    description: Send money to another player's bank.
+    default: true
+  dkbank.history:
+    description: See your own transaction history.
+    default: true
+  dkbank.interest:
+    description: See your interest rates and next payout (/bank interest).
+    default: true
+  dkbank.balance.others:
+    description: See other players' bank balances.
+    default: op
+  dkbank.admin:
+    description: All admin commands.
+    default: op
+    children:
+      dkbank.admin.give: true
+      dkbank.admin.take: true
+      dkbank.admin.set: true
+      dkbank.admin.history: true
+      dkbank.admin.reload: true
+      dkbank.balance.others: true
+  dkbank.admin.give:
+    description: Add money to a bank account.
+    default: op
+  dkbank.admin.take:
+    description: Remove money from a bank account.
+    default: op
+  dkbank.admin.set:
+    description: Set a bank balance.
+    default: op
+  dkbank.admin.history:
+    description: See anyone's transaction history.
+    default: op
+  dkbank.admin.reload:
+    description: Reload the configuration.
+    default: op

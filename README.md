@@ -31,7 +31,7 @@ Open the folder in IntelliJ IDEA and let Gradle sync. If you don't have JDK 21, 
 ./gradlew build
 ```
 
-The plugin jar is `plugin/build/libs/dkBank-<version>.jar`. Bundled libraries (HikariCP) are moved into
+The plugin jar is `plugin/build/libs/dkBank-<version>.jar` (the only jar there). Bundled libraries (HikariCP) are moved into
 `dev.direk.dkbank.libs` inside the jar so they can't clash with other plugins.
 
 Every push to GitHub runs the same build and tests (see `.github/workflows/build.yml`). The jar is
@@ -39,8 +39,9 @@ attached to each run under **Actions → the run → Artifacts**.
 
 ## Test servers
 
-Each task builds the plugin, downloads the server, and starts it with dkBank installed. Every version
-gets its own folder under `run/` (ignored by git). The right Java version is downloaded if needed.
+Each task builds the plugin, downloads the server, and starts it with dkBank, **Vault 1.7.3 and EssentialsX
+2.22.0** installed, so deposits and withdrawals work like on a real server. Every version gets its own folder
+under `run/` (ignored by git). The right Java version is downloaded if needed.
 
 | Task | Server |
 |---|---|
@@ -48,11 +49,32 @@ gets its own folder under `run/` (ignored by git). The right Java version is dow
 | `runPaper-1.21.4`, `runPaper-1.21.11`, `runPaper-26.1`, `runPaper-26.3` | Paper |
 | `runPurpur-1.21.4`, `runPurpur-1.21.11`, `runPurpur-26.1`, `runPurpur-26.3` | Purpur |
 
-In IntelliJ: Gradle tool window → `plugin` → Tasks → **dkbank test servers**.
-From a terminal: `./gradlew :plugin:runPaper-1.21.4`.
+**In IntelliJ:** open the **Gradle** tool window (the elephant icon on the right edge) → `dkBank` →
+`plugin` → `Tasks` → **`dkbank test servers`**, then double-click a task. If the group isn't there, click
+the **Reload All Gradle Projects** button (circular arrows) at the top of the Gradle window.
+
+**From a terminal** (Windows): `.\gradlew.bat :plugin:runPaper-1.21.4`
+(macOS/Linux: `./gradlew :plugin:runPaper-1.21.4`)
 
 The first run of each server stops to ask you to accept the Minecraft EULA: set `eula=true` in
-`run/<server>/eula.txt` and run the task again.
+`run/<server>/eula.txt` and run the task again. Stop a server by typing `stop` in its console.
+
+## Commands (0.2.0)
+
+| Command | Permission (default) |
+|---|---|
+| `/bank`, `/bank balance` | `dkbank.use` (everyone) |
+| `/bank deposit <amount>` | `dkbank.deposit` (everyone) |
+| `/bank withdraw <amount>` | `dkbank.withdraw` (everyone) |
+| `/bank pay <player> <amount>` | `dkbank.pay` (everyone) |
+| `/bank history [page]` | `dkbank.history` (everyone) |
+| `/bank interest` | `dkbank.interest` (everyone) |
+| `/bank balance <player>` | `dkbank.balance.others` (op) |
+| `/bank admin give\|take\|set <player> <amount>` | `dkbank.admin.give` / `.take` / `.set` (op) |
+| `/bank admin history <player> [page]` | `dkbank.admin.history` (op) |
+| `/bank admin reload` | `dkbank.admin.reload` (op) |
+
+Amounts: `1000`, `1,000`, `1.5k`, `2m`, `1b`, `all`, `half`. `dkbank.admin` gives every admin permission.
 
 ## Releasing
 

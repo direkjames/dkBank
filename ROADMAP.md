@@ -23,6 +23,7 @@ Status legend: ☐ planned · ◐ in progress · ☑ done
 | Packages | `dev.direk.dkbank` (plugin), `dev.direk.dkbank.api` (API) | |
 | Null safety | JSpecify `@NullMarked` | Paper's own standard; the JetBrains annotations aren't available to plugins on 1.21.4 |
 | Licenses | Proprietary (plugin), MIT (API) | Done |
+| Interest | Online 1%/hour played (simple), offline 1%/day (compounding), on the lowest balance, capped | Compounding offline matches daily payouts; the cap keeps growth linear |
 
 ---
 
@@ -36,35 +37,41 @@ Status legend: ☐ planned · ◐ in progress · ☑ done
 - ☑ GitHub Actions: build and test on every push, jar attached to each run
 - ☑ API entry point `DkBankAPI.get()`, registered as a Bukkit service
 
-## Phase 1 · Core banking — `0.1.0`
+## Phase 1 · Core banking — `0.1.0` ☑
 
-- ☐ Accounts created automatically on first join
-- ☐ Deposit (wallet → bank), withdraw (bank → wallet), transfer (bank → another player's bank)
-- ☐ Amounts: `1000`, `1.5k`, `2m`, `1b`, `all`, `half`
-- ☐ Optional fees on withdrawals and transfers, minimum and maximum amounts
-- ☐ All-or-nothing transfers: if the database write fails, the wallet is refunded
-- ☐ One lock per account, so two actions can never spend the same money
-- ☐ Transaction log (type, amount, balance after, time, other party)
-- ☐ Commands with tab completion: `/bank`, `deposit`, `withdraw`, `pay`, `balance`, `history`
-- ☐ Admin: `/bank admin give | take | set | balance | history <player>`
-- ☐ `messages.yml` in MiniMessage, configurable prefix
+- ☑ Accounts created automatically at login (on the login thread, never the main thread)
+- ☑ Deposit (wallet → bank), withdraw (bank → wallet), transfer (bank → another player's bank, online or offline)
+- ☑ Amounts: `1000`, `1,000`, `1.5k`, `2m`, `1b`, `1t`, `all`, `half`; typed amounts round down, fees round up
+- ☑ Optional fees on withdrawals and transfers, minimum and maximum amounts, maximum balance
+- ☑ All-or-nothing: if the bank step fails the wallet is refunded, and if the wallet refuses the bank is refunded
+- ☑ Each operation is one database transaction with the account locked, so money can't be spent twice
+  (tested with 400 parallel withdrawals and 300 parallel opposite transfers)
+- ☑ One operation at a time per player; everything in progress finishes before the server stops
+- ☑ Transaction log with clickable paged `/bank history`
+- ☑ Commands with tab completion, granular permissions, admin give / take / set / balance / history / reload
+- ☑ `config.yml` and `messages.yml` (MiniMessage) that fill in new settings automatically on update
+- ☑ SQLite (WAL, crash-safe) and MySQL / MariaDB through HikariCP
+- ☑ Test servers come with Vault and EssentialsX
+- ☐ To verify in game: deposit, withdraw, pay, history, admin commands, restart mid-transaction
 
-## Phase 2 · Interest engine — `0.2.0`
+## Phase 2 · Interest engine — `0.2.0` ☑
 
 The core feature. Interest is calculated from timestamps, so it's exact, restarts and crashes never
 double-pay or skip a payout, and offline accounts cost nothing.
 
-- ☐ **Online interest:** paid every `online.interval` (e.g. hourly) to active players
-- ☐ **Offline interest:** builds up while away, settled at login with a "while you were away" summary
-- ☐ Separate rates, compounding, configurable payout messages and sounds
-- ☐ AFK players earn the offline rate. Hooks: EssentialsX, CMI, DirekAntiAFK, plus a built-in idle check
-- ☐ Anti-abuse:
-  - money must stay deposited for `min-deposit-age` before it earns
-  - offline interest stops after `offline.max-days`
-  - only the balance up to the tier's interest cap earns
-  - maximum interest per payout
-- ☐ Unit tests, including a simulated year of interest to prove the limits hold
-- ☐ Default rates: **to confirm** (proposal: online 1% per hour played, offline 2% per day, capped per tier)
+- ☑ **Online interest:** 1% per hour of active play (simple, prorated at logout), paid every hour played
+- ☑ **Offline interest:** 1% per day away, compounding, paid at login with a "while you were away" message
+- ☑ Separate rates and periods, payout messages and sound, `/bank interest` for rates and next payout
+- ☑ AFK players earn the offline rate. Paper's built-in idle time plus placeholders from EssentialsX, CMI
+  and DirekAntiAFK (through PlaceholderAPI)
+- ☑ Anti-abuse:
+  - interest is paid on the lowest balance since the last payout (deposits earn from the next payout)
+  - offline time counts up to `offline.max-time` (7 days)
+  - only the balance up to the interest cap earns (100,000 by default; per tier in Phase 3)
+  - maximum interest per payout, and never past the maximum balance
+  - progress saved every minute; crashes never double-pay, at most a minute is lost
+- ☑ Unit tests, including a simulated year of interest proving the cap keeps growth linear
+- ☑ Default rates: online 1% per hour played, offline 1% per day, capped
 
 ## Phase 3 · Bank tiers — `0.3.0`
 
@@ -128,6 +135,5 @@ double-pay or skip a payout, and offline accounts cost nothing.
 
 ## Open questions
 
-1. Default interest rates (see Phase 2)
-2. Which bank plugins to support importing from (see Phase 5)
-3. GUI theme or colors you'd like dkBank to be known for
+1. Which bank plugins to support importing from (see Phase 5)
+2. GUI theme or colors you'd like dkBank to be known for

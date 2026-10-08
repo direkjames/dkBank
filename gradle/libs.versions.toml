@@ -7,14 +7,22 @@ vault-api = "1.7.1"
 placeholderapi = "2.12.3"
 hikaricp = "7.1.0"
 junit = "6.1.3"
+# Only for tests: Paper ships its own SQLite driver on servers.
+sqlite-jdbc = "3.49.1.0"
 shadow = "9.6.1"
 run-paper = "3.1.0"
+
+# Plugins installed on the test servers (run tasks), to match a typical server
+test-vault = "1.7.3"
+# EssentialsX 2.22.0 on Modrinth (run-paper needs the version id)
+test-essentialsx = "nY6VN1XH"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper-api" }
 vault-api = { module = "com.github.MilkBowl:VaultAPI", version.ref = "vault-api" }
 placeholderapi = { module = "me.clip:placeholderapi", version.ref = "placeholderapi" }
 hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }

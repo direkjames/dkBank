@@ -1,0 +1,141 @@
+# ============================================================
+#  dkBank configuration
+#  Text and colors live in messages.yml.
+#  Run /bank admin reload after editing (storage and command aliases need a restart).
+# ============================================================
+
+command:
+  # Extra names for /bank. /dkbank:bank always works, even if another plugin also uses /bank.
+  aliases: [dkbank]
+
+# ------------------------------------------------------------
+#  How amounts are shown
+# ------------------------------------------------------------
+currency:
+  symbol: "$"
+  # before = $100, after = 100$
+  symbol-position: before
+  # false hides cents everywhere ($1,234 instead of $1,234.56). Balances still keep the cents.
+  show-cents: true
+  thousands-separator: ","
+  decimal-separator: "."
+  # Short forms used for big numbers in menus: thousand, million, billion, trillion, quadrillion
+  compact-suffixes: [K, M, B, T, Q]
+  # true = show amounts the way your economy plugin does (e.g. EssentialsX's format) instead of the above
+  use-economy-format: false
+
+# ------------------------------------------------------------
+#  Limits
+#  Amounts accept 1000, 1.5k, 2m, 1b, all and half.
+# ------------------------------------------------------------
+limits:
+  # Smallest amount for a deposit, withdrawal or transfer
+  min-amount: 1
+  # Largest amount per deposit, withdrawal or transfer. 0 = no limit.
+  # "all" and "half" are reduced to this instead of failing.
+  max-per-transaction: 0
+  # Largest bank balance anyone can have. 0 = no limit. (Bank tiers can set their own later.)
+  max-balance: 0
+
+# ------------------------------------------------------------
+#  Fees (percent, e.g. 2.5 = 2.5%). 0 = free.
+# ------------------------------------------------------------
+fees:
+  # Taken from the amount withdrawn: withdrawing 100 at 2% gives 98 to the wallet.
+  withdraw-percent: 0
+  # Paid by the sender on top of the amount: sending 100 at 2% costs 102.
+  transfer-percent: 0
+
+# ------------------------------------------------------------
+#  Bank-to-bank transfers (/bank pay)
+# ------------------------------------------------------------
+transfers:
+  enabled: true
+  # false = you can only send money to players who are online
+  allow-offline-players: true
+
+# ------------------------------------------------------------
+#  Interest
+#  Times: 30s, 15m, 1h, 7d, 1d 12h.  Rates: percent, e.g. 1 = 1%, 0.25 = 0.25%.
+#
+#  Interest is paid on the LOWEST balance since the last payout, so money moved in just before a
+#  payout doesn't earn anything until the payout after it. Withdrawing lowers what earns right away.
+#  (Bank tiers will give each tier its own rates and cap; these are the defaults for everyone.)
+# ------------------------------------------------------------
+interest:
+  online:
+    enabled: true
+    # Paid for every <period> of play: 1% for each hour online (prorated at logout).
+    rate: 1
+    period: 1h
+  offline:
+    enabled: true
+    # Paid at login for the time away, compounding: 3 days at 1% per day = 3.03%.
+    # Time spent AFK while online also earns this rate instead of the online one.
+    rate: 1
+    period: 1d
+    # Time away that counts, at most. Stops accounts of players who quit from growing forever.
+    max-time: 7d
+  # Only this much of a balance earns interest. 0 = no cap (not recommended: balances snowball).
+  cap: 100000
+  # Most interest in a single payout. 0 = no limit.
+  max-per-payout: 0
+  notify:
+    # Tell players when they're paid (messages.yml → interest)
+    online-payout: true
+    offline-payout: true
+    # Seconds after joining before the "while you were away" message, so it isn't lost in join spam
+    login-delay: 3
+    # Sound for a payout. "" = none. Names: https://jd.papermc.io/paper/1.21.4/org/bukkit/Sound.html
+    sound: "entity.experience_orb.pickup"
+
+# ------------------------------------------------------------
+#  AFK detection (AFK players earn the offline rate instead of the online one)
+# ------------------------------------------------------------
+afk-detection:
+  enabled: true
+  # Counted as AFK after this long without moving, looking around, chatting or using commands. 0 = off.
+  idle-after: 5m
+  # PlaceholderAPI placeholders that say whether a player is AFK, from your AFK plugin.
+  # Placeholders that aren't installed are ignored.
+  #   EssentialsX: %essentials_afk%  (needs: /papi ecloud download Essentials)
+  #   CMI:         %cmi_user_afk%
+  #   DirekAntiAFK: %antiafk_afk%
+  placeholders:
+    - "%essentials_afk%"
+    - "%cmi_user_afk%"
+    - "%antiafk_afk%"
+  # Values that mean "AFK" (not case-sensitive)
+  afk-values: ["yes", "true"]
+
+# ------------------------------------------------------------
+#  /bank history
+# ------------------------------------------------------------
+history:
+  # Lines per page (3-20)
+  page-size: 8
+  # Java date pattern: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/time/format/DateTimeFormatter.html
+  date-format: "MMM d, HH:mm"
+  # e.g. Asia/Manila, Europe/London. Leave empty to use the server's timezone.
+  timezone: ""
+
+# ------------------------------------------------------------
+#  Storage (changes need a restart)
+# ------------------------------------------------------------
+storage:
+  # sqlite = a file in the plugin folder, nothing to set up (best for one server)
+  # mysql / mariadb = a database server (needed if several servers share bank accounts)
+  type: sqlite
+  # Put in front of every table name, so several plugins or servers can share one database
+  table-prefix: "dkbank_"
+  sqlite:
+    file: "bank.db"
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "dkbank"
+    username: "root"
+    password: ""
+    use-ssl: false
+    # Database connections to keep open (2-20)
+    pool-size: 6

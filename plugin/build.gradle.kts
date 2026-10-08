@@ -22,6 +22,7 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.paper.api)
+    testImplementation(libs.sqlite.jdbc)
     testRuntimeOnly(libs.junit.launcher)
 }
 
@@ -33,8 +34,8 @@ tasks {
     }
 
     jar {
-        // The real plugin jar is the shaded one below.
-        archiveClassifier.set("plain")
+        // Only the shaded jar below is the plugin; don't leave a second, unusable jar in build/libs.
+        enabled = false
     }
 
     shadowJar {
@@ -62,6 +63,16 @@ tasks {
 }
 
 // ---------------------------------------------------------------- test servers
+
+// Every test server gets Vault and EssentialsX, so deposits and withdrawals work like on a real server.
+val vaultVersion = libs.versions.test.vault.get()
+val essentialsVersion = libs.versions.test.essentialsx.get()
+tasks.withType<RunServer>().configureEach {
+    downloadPlugins {
+        github("MilkBowl", "Vault", vaultVersion, "Vault.jar")
+        modrinth("essentialsx", essentialsVersion)
+    }
+}
 // One task per supported version, each in its own folder under run/:
 //   ./gradlew runPaper-1.21.4   runPaper-1.21.11   runPaper-26.1   runPaper-26.3
 //   ./gradlew runPurpur-1.21.4  runPurpur-1.21.11  runPurpur-26.1  runPurpur-26.3

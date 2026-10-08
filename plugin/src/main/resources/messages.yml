@@ -1,0 +1,151 @@
+# ============================================================
+#  dkBank messages
+#  Format: MiniMessage, https://docs.advntr.dev/minimessage/format.html
+#  <prefix> inserts the prefix below. Set any message to "" to turn it off.
+#  A list (lines starting with -) is sent as several lines.
+# ============================================================
+
+prefix: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>»</dark_gray> "
+
+# ------------------------------------------------------------
+#  Balance
+# ------------------------------------------------------------
+# <balance> <wallet>
+balance:
+  - "<prefix><gray>Bank balance: <gradient:#F5C542:#D4A017><bold><balance></bold></gradient>"
+  - "<prefix><gray>Wallet: <white><wallet>"
+hint: "<prefix><dark_gray>Type <gray>/bank help</gray> for everything you can do."
+# <player> <balance>
+balance-other: "<prefix><white><player></white><gray>'s bank balance: <gold><balance>"
+
+# ------------------------------------------------------------
+#  Deposit and withdraw
+# ------------------------------------------------------------
+# <amount> <balance>
+deposit-success: "<prefix><green>Deposited <white><amount></white>. <gray>Bank balance: <gold><balance>"
+# <amount> <received> <fee> <balance>
+withdraw-success: "<prefix><green>Withdrew <white><amount></white>. <gray>Bank balance: <gold><balance>"
+withdraw-success-fee: "<prefix><green>Withdrew <white><amount></white> <gray>(<white><received></white> after a <white><fee></white> fee). Bank balance: <gold><balance>"
+
+# ------------------------------------------------------------
+#  Transfers
+# ------------------------------------------------------------
+# <amount> <fee> <player> <balance>
+pay-sent: "<prefix><green>Sent <white><amount></white> to <white><player></white>'s bank. <gray>Your balance: <gold><balance>"
+pay-sent-fee: "<prefix><green>Sent <white><amount></white> to <white><player></white>'s bank <gray>(+<white><fee></white> fee). Your balance: <gold><balance>"
+# <amount> <player> <balance>
+pay-received: "<prefix><green><white><player></white> sent <white><amount></white> to your bank. <gray>Balance: <gold><balance>"
+cannot-pay-self: "<prefix><red>You can't send money to yourself."
+transfers-disabled: "<prefix><red>Bank transfers are turned off."
+# <player>
+target-offline: "<prefix><red><player> must be online to receive money."
+receiver-full: "<prefix><red><player>'s bank is full."
+
+# ------------------------------------------------------------
+#  Problems
+# ------------------------------------------------------------
+# <input>
+invalid-amount: "<prefix><red>'<input>' isn't a valid amount. <gray>Try 1000, 1.5k, 2m, all or half."
+# <min>
+amount-too-small: "<prefix><red>The smallest amount is <min>."
+# <max>
+amount-too-large: "<prefix><red>The largest amount is <max> at a time."
+# <wallet>
+not-enough-wallet: "<prefix><red>You don't have that much in your wallet. <gray>Wallet: <white><wallet>"
+# <balance>
+not-enough-bank: "<prefix><red>You don't have that much in the bank. <gray>Balance: <white><balance>"
+# <room> <limit>
+bank-full: "<prefix><red>Your bank is full. <gray>You can deposit up to <white><room></white> more."
+# <player>
+unknown-player: "<prefix><red>No bank account found for <player>."
+busy: "<prefix><gray>Please wait, your last transaction is still going through."
+economy-missing: "<prefix><red>The bank is unavailable: no economy plugin was found."
+wallet-error: "<prefix><red>Your wallet couldn't be updated, so nothing was changed."
+error: "<prefix><red>Something went wrong and nothing was changed. Please tell a staff member."
+player-only: "<prefix><red>Only players can do that."
+
+# ------------------------------------------------------------
+#  Interest
+# ------------------------------------------------------------
+interest:
+  # <amount> <balance>
+  online-payout: "<prefix><green>+<amount></green> <gray>interest. Bank balance: <gold><balance>"
+  # <amount> <balance> <time> (how long they were away, e.g. 2d 5h)
+  offline-payout:
+    - "<prefix><gray>Welcome back! While you were away <dark_gray>(<time>)</dark_gray>, your bank earned <green>+<amount></green>."
+    - "<prefix><gray>Bank balance: <gold><balance>"
+  # /bank interest. Each line can be turned off with "".
+  info:
+    header: "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>— interest"
+    # <rate> <period>
+    online: " <gray>Online: <green><rate>%</green> per <white><period></white> played"
+    online-off: " <gray>Online: <dark_gray>none"
+    # <rate> <period> <max> (time away that counts, at most)
+    offline: " <gray>Offline & AFK: <green><rate>%</green> per <white><period></white> <dark_gray>(counts up to <max> away)"
+    offline-off: " <gray>Offline & AFK: <dark_gray>none"
+    # <earning> (the part of the balance earning now) <cap>
+    earning: " <gray>Earning on: <gold><earning></gold> <dark_gray>(lowest balance since your last payout, up to <cap>)"
+    no-cap: "no limit"
+    # <time> (until the next online payout) <done> <period>
+    next: " <gray>Next payout in <white><time></white> <dark_gray>of play"
+
+# ------------------------------------------------------------
+#  History
+# ------------------------------------------------------------
+history:
+  # <player> <page> <pages>
+  header: "<prefix><gray>Bank history of <white><player></white> <dark_gray>(page <page>/<pages>)"
+  empty: "<prefix><gray>No transactions yet."
+  # Each line. <line> is the text for that type below. <date> is when it happened.
+  entry: " <dark_gray><date></dark_gray> <line>"
+  # <amount> <fee> <balance> <player> (the other player) <actor> (the admin)
+  types:
+    deposit: "<green>+<amount></green> <gray>deposit"
+    withdraw: "<red>-<amount></red> <gray>withdrawal"
+    transfer-out: "<red>-<amount></red> <gray>to <white><player></white>"
+    transfer-in: "<green>+<amount></green> <gray>from <white><player></white>"
+    admin-give: "<green>+<amount></green> <gray>added by staff"
+    admin-take: "<red>-<amount></red> <gray>removed by staff"
+    admin-set: "<yellow>=<amount></yellow> <gray>set by staff"
+    refund: "<green>+<amount></green> <gray>refund"
+    # <actor> is online or offline
+    interest: "<green>+<amount></green> <gray><actor> interest"
+  # <page> <pages>. Previous and next are clickable.
+  footer: "<dark_gray>Page <page>/<pages>"
+  previous: "<gold>« Previous"
+  next: "<gold>Next »"
+
+# ------------------------------------------------------------
+#  Help
+# ------------------------------------------------------------
+help:
+  player:
+    - "<gradient:#F5C542:#D4A017><bold>dkBank</bold></gradient> <dark_gray>— your bank account"
+    - " <gold>/bank</gold> <gray>your balance"
+    - " <gold>/bank deposit <amount></gold> <gray>wallet → bank"
+    - " <gold>/bank withdraw <amount></gold> <gray>bank → wallet"
+    - " <gold>/bank pay <player> <amount></gold> <gray>send to another player's bank"
+    - " <gold>/bank history [page]</gold> <gray>your transactions"
+    - " <gold>/bank interest</gold> <gray>your interest rates and next payout"
+    - " <dark_gray>Amounts: 1000, 1.5k, 2m, all, half"
+  admin:
+    - "<gradient:#F5C542:#D4A017><bold>dkBank admin</bold></gradient>"
+    - " <gold>/bank admin give|take|set <player> <amount>"
+    - " <gold>/bank admin balance <player>"
+    - " <gold>/bank admin history <player> [page]"
+    - " <gold>/bank admin reload"
+
+# ------------------------------------------------------------
+#  Admin
+# ------------------------------------------------------------
+admin:
+  # <player> <amount> <balance>
+  give: "<prefix><green>Added <white><amount></white> to <white><player></white>'s bank. <gray>Balance: <gold><balance>"
+  take: "<prefix><green>Removed <white><amount></white> from <white><player></white>'s bank. <gray>Balance: <gold><balance>"
+  set: "<prefix><green>Set <white><player></white>'s bank balance to <gold><balance>"
+  # <player> <balance>
+  take-insufficient: "<prefix><red><player> only has <balance> in the bank."
+  # <player>
+  limit: "<prefix><red>That would put <player>'s bank over the maximum."
+  no-shares: "<prefix><red>Use an exact amount for admin commands, not all or half."
+  reloaded: "<prefix><green>config.yml and messages.yml reloaded. <gray>(Storage and command aliases need a restart.)"
