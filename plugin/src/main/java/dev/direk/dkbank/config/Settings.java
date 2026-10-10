@@ -42,6 +42,7 @@ public record Settings(
         Top top,
         boolean metrics,
         boolean updateChecker,
+        boolean startupBanner,
         Storage storage
 ) {
 
@@ -82,8 +83,10 @@ public record Settings(
     /**
      * @param idleAfterMillis idle time after which a player counts as AFK; 0 = don't use idle time
      * @param afkValues       placeholder results meaning AFK, lower case
+     * @param useAfkPlugins   ask plugins that registered an AfkSource (e.g. dkCore with dkAFK)
      */
-    public record AfkDetection(boolean enabled, long idleAfterMillis, List<String> placeholders, Set<String> afkValues) {
+    public record AfkDetection(boolean enabled, long idleAfterMillis, List<String> placeholders, Set<String> afkValues,
+                               boolean useAfkPlugins) {
     }
 
     public enum StorageType { SQLITE, MYSQL }
@@ -181,7 +184,8 @@ public record Settings(
                 check.duration(c, "afk-detection.idle-after", "5m", Duration.ZERO),
                 c.getStringList("afk-detection.placeholders").stream().filter(t -> !t.isBlank()).map(String::trim).toList(),
                 c.getStringList("afk-detection.afk-values").stream().map(v -> v.trim().toLowerCase(Locale.ROOT))
-                        .collect(Collectors.toUnmodifiableSet()));
+                        .collect(Collectors.toUnmodifiableSet()),
+                c.getBoolean("afk-detection.use-afk-plugins", true));
 
         return new Settings(
                 List.copyOf(c.getStringList("command.aliases")),
@@ -211,6 +215,7 @@ public record Settings(
                                 .collect(Collectors.toUnmodifiableSet())),
                 c.getBoolean("metrics", true),
                 c.getBoolean("update-checker", true),
+                c.getBoolean("startup-banner", true),
                 storage);
     }
 

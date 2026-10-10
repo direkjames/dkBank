@@ -2,7 +2,7 @@ name: dkBank
 version: '${version}'
 main: dev.direk.dkbank.DkBankPlugin
 api-version: '1.21.4'
-author: Direk
+author: direk james
 description: A premium bank with separate online and offline interest.
 folia-supported: false
 # Economy plugins are listed so they load first: dkBank needs them when the server stops, to finish refunds.

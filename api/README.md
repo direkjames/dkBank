@@ -12,7 +12,7 @@ The API classes are inside the dkBank jar on the server. Your plugin only compil
 
 ```kotlin
 dependencies {
-    compileOnly(files("libs/dkBank-API-1.0.0.jar"))
+    compileOnly(files("libs/dkBank-API-1.1.0.jar"))
 }
 ```
 
@@ -20,7 +20,7 @@ Or, after `./gradlew :api:publishToMavenLocal` in the dkBank project:
 
 ```kotlin
 repositories { mavenLocal() }
-dependencies { compileOnly("dev.direk:dkBank-API:1.0.0") }
+dependencies { compileOnly("dev.direk:dkBank-API:1.1.0") }
 ```
 
 **plugin.yml**
@@ -64,6 +64,19 @@ int place = bank.rank(player.getUniqueId());
 **Threads:** methods returning a `CompletableFuture` work in the background and complete on the main
 thread. Call them from any thread, but never `join()` or `get()` them on the main thread: that freezes
 the server.
+
+## Tell dkBank who is AFK
+
+AFK players earn the offline interest rate. If your plugin knows who is AFK, register an `AfkSource`
+(since 1.1.0) and dkBank asks it, with no PlaceholderAPI placeholders needed:
+
+```java
+Bukkit.getServicesManager().register(AfkSource.class, uuid -> afkManager.isAfk(uuid),
+        this, ServicePriority.Normal);
+```
+
+It's asked on the main thread about once a minute per online player, so read from memory. A player is
+AFK if any source, dkBank's idle time or a placeholder says so. dkCore uses this to pass on dkAFK.
 
 ## Events
 

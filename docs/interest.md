@@ -26,6 +26,10 @@ logging off. A player counts as AFK after `afk-detection.idle-after` without mov
 chatting or using commands, or when an AFK plugin says so through PlaceholderAPI (EssentialsX, CMI and
 DirekAntiAFK are set up by default).
 
+Plugins can also tell dkBank directly who is AFK, with no placeholders (see `AfkSource` in the
+Developer API). With dkCore and dkAFK installed this happens on its own. Turn it off with
+`afk-detection.use-afk-plugins: false`. The console shows what dkBank uses once the server has loaded.
+
 ## The lowest-balance rule
 
 Interest is paid on the **lowest balance since the last payout**. Money deposited just before a payout

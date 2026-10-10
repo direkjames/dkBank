@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0 — dk suite and startup banner
+
+- **Startup banner:** the console shows the dkBank logo, version, author, server, Java, storage, tiers,
+  placeholders and startup time. Once the server finishes loading it shows the economy, how AFK players
+  are detected and the dkCore link, with a red banner and the fix when something is missing.
+  `startup-banner: false` in config.yml goes back to plain log lines.
+- **dk suite:** dkCore links to dkBank when both are installed. dk plugins can use the bank through
+  dkCore, and dkAFK tells dkBank who is AFK. dkBank still works on its own without dkCore.
+- **API:** new `AfkSource` service: any plugin can tell dkBank who is AFK, no placeholders needed.
+  `afk-detection.use-afk-plugins` (default `true`) turns this on or off.
+- Author name set to direk james.
+
 ## 1.0.0 — first release
 
 Everything below, ready for sale.

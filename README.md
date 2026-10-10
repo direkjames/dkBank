@@ -7,11 +7,13 @@ menus, a leaderboard, an alt-account limit and a developer API.
 
 | | |
 |---|---|
-| Version | 1.0.0 |
+| Version | 1.1.0 |
 | Servers | Paper, Purpur |
 | Minecraft | 1.21.4 – 26.3 (one jar) |
 | Java | 21 or newer (1.21.x servers run 21, 26.x servers run 25) |
 | Needs | Vault (or VaultUnlocked) and an economy plugin |
+| Author | direk james |
+| Works with | dkCore (optional): part of the dk suite, uses dkAFK for interest |
 
 ## Documentation
 
@@ -33,6 +35,19 @@ gradle/libs.versions.toml   every dependency version in one place
 
 Packages: `dev.direk.dkbank` (plugin), `dev.direk.dkbank.api` (API).
 
+## dk suite (dkCore)
+
+dkBank is a standalone plugin and never needs dkCore, so buyers can use it on any server. When
+[dkCore](https://github.com/direkjames/dkcore) is installed, dkCore links to dkBank on its own:
+
+- every dk plugin can use the bank through dkCore's `bank()` service, without depending on dkBank
+- dkAFK's AFK status is passed to dkBank through the `AfkSource` API, so AFK players earn the offline
+  interest rate with no placeholders needed
+- dkBank shows in dkCore's "dk suite ready" summary
+
+Never add dkCore to dkBank's `depend` or `softdepend`: dkCore lists dkBank as a softdepend, and listing
+it back would make a loading loop.
+
 ## Building
 
 Open the folder in IntelliJ IDEA and let Gradle sync. If you don't have JDK 21, Gradle downloads it.
@@ -43,6 +58,9 @@ Open the folder in IntelliJ IDEA and let Gradle sync. If you don't have JDK 21, 
 
 The plugin jar is `plugin/build/libs/dkBank-<version>.jar` (the only jar there). Bundled libraries (HikariCP, bStats) are moved into
 `dev.direk.dkbank.libs` inside the jar so they can't clash with other plugins.
+
+dkCore compiles against the dkBank API. After changing anything in `api/`, run
+`./gradlew :api:publishToMavenLocal` so dkCore picks it up.
 
 Every push to GitHub runs the same build and tests (see `.github/workflows/build.yml`). The jar is
 attached to each run under **Actions → the run → Artifacts**.

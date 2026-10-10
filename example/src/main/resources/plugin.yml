@@ -2,6 +2,6 @@ name: dkBankExample
 version: '${version}'
 main: dev.direk.dkbankexample.ExamplePlugin
 api-version: '1.21.4'
-author: Direk
+author: direk james
 description: Shows how to use the dkBank Developer API.
 depend: [dkBank]

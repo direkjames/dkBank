@@ -56,6 +56,7 @@ See [How interest works](interest.md). Rates, caps and limits are per tier in `t
 | `idle-after` | `5m` | AFK after this long without activity (0 = only placeholders) |
 | `placeholders` | EssentialsX, CMI, DirekAntiAFK | PlaceholderAPI placeholders from AFK plugins |
 | `afk-values` | `[yes, true]` | Placeholder results that mean AFK |
+| `use-afk-plugins` | `true` | Ask plugins that tell dkBank directly who is AFK (e.g. dkCore with dkAFK) |
 
 ## alt-limit
 
@@ -93,11 +94,12 @@ See [Alt-account limit](alt-limit.md).
 | `date-format` | `MMM d, HH:mm` | [Java date pattern](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/time/format/DateTimeFormatter.html) |
 | `timezone` | `""` | e.g. `Asia/Manila`; empty = the server's |
 
-## update-checker, metrics
+## update-checker, startup-banner, metrics
 
 | Setting | Default | |
 |---|---|---|
 | `update-checker` | `true` | Tell staff (`dkbank.admin`) when a new version is out |
+| `startup-banner` | `true` | The dkBank banner in the console on startup; `false` = plain log lines |
 | `metrics` | `true` | Anonymous usage numbers on bstats.org (no player data) |
 
 ## storage

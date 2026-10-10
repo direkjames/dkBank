@@ -104,6 +104,9 @@ afk-detection:
     - "%antiafk_afk%"
   # Values that mean "AFK" (not case-sensitive)
   afk-values: ["yes", "true"]
+  # Ask plugins that tell dkBank directly who is AFK (for example dkCore with dkAFK).
+  # No placeholders needed for those. false = only use idle-after and the placeholders above.
+  use-afk-plugins: true
 
 # ------------------------------------------------------------
 #  Alt-account limit
@@ -166,6 +169,9 @@ history:
 # ------------------------------------------------------------
 # Tell staff (dkbank.admin) when a new dkBank version is out. Checked once at startup.
 update-checker: true
+# Show the dkBank banner in the console on startup (version, storage, economy, AFK, dkCore link).
+# false = a few plain log lines instead.
+startup-banner: true
 # Anonymous usage numbers for the developer on bstats.org (number of servers, versions, storage type).
 # No player data. Also turned off for every plugin in plugins/bStats/config.yml.
 metrics: true
